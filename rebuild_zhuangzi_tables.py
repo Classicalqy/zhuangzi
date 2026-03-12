@@ -305,6 +305,11 @@ def classify_cell(sheet: str, row: int, book: str, commentator: str, text: str) 
         return "annotation"
     if has_hard_ann and marker_hits >= 2 and core_kw_hits <= 1 and text_len < 180:
         return "annotation"
+    # Loosen annotation slightly: short non-philosophical clauses tend to be lexical notes.
+    if text_len <= 20 and core_kw_hits == 0 and i_score <= 1 and punct_hits <= 1:
+        return "annotation"
+    if re.search(r"^[^，,。；]{1,10}者[，,][^。；]{1,18}(?:也|者也|耳|矣)$", text):
+        return "annotation"
 
     if commentator in ANNOTATION_COMMENTATORS and has_hard_ann:
         return "annotation"
@@ -625,9 +630,12 @@ def rebuild(raw_path: str, template_path: str, out_path: str, sync_to_raw: bool 
                 for unit in rem_units:
                     kind = classify_cell(cfg.sheet, r, book, commentator, unit)
                     # For mixed-cell splitting, non-gloss units default to interpretation
-                    # unless they are very short fragments.
-                    if kind == "annotation" and not has_hard_annotation_marker(unit) and len(unit) >= 10:
-                        kind = "interpretation"
+                    # unless they are clear short lexical notes.
+                    if kind == "annotation" and not has_hard_annotation_marker(unit):
+                        u_i_score = interp_score(unit)
+                        u_punct = unit.count("。") + unit.count("；") + unit.count(";") + unit.count("，")
+                        if len(unit) >= 22 and u_i_score >= 2 and u_punct >= 1:
+                            kind = "interpretation"
 
                     if kind == "annotation":
                         annotation_rows.append([cfg.text_id, sid, commentator, dynasty, unit])
