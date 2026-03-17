@@ -34,7 +34,6 @@ ANNOTATION_COMMENTATORS = {
     "司马彪",
     "郭象",
     "崔撰",
-    "崔𬤥",
     "向秀",
     "李颐",
     "李轨",
@@ -194,45 +193,25 @@ def is_gloss_like_clause(text: str) -> bool:
     return False
 
 
-def partition_cell_text(text: str) -> Tuple[List[str], List[str]]:
-    """Partition one cell into (annotation-like units, remaining units)."""
-    major_parts = [p.strip() for p in re.split(r"[。；;\n]+", text) if p.strip()]
-    ann_units: List[str] = []
-    rem_units: List[str] = []
+def split_cell_by_sentence(text: str) -> List[str]:
+    """Coarse segmentation: keep sentence-level order, avoid over-splitting by commas."""
+    if not text:
+        return []
 
-    for part in major_parts:
-        if is_gloss_like_clause(part):
-            ann_units.append(part)
-            continue
+    parts = re.split(r"([。；;！？?!\n]+)", text)
+    units: List[str] = []
+    i = 0
+    while i < len(parts):
+        body = (parts[i] or "").strip()
+        sep = ""
+        if i + 1 < len(parts) and parts[i + 1]:
+            sep = parts[i + 1]
+        seg = f"{body}{sep}".strip()
+        if seg:
+            units.append(seg)
+        i += 2
 
-        comma_parts = [x.strip() for x in re.split(r"[，,]", part) if x.strip()]
-        if len(comma_parts) <= 1:
-            rem_units.append(part)
-            continue
-
-        rem_buf: List[str] = []
-        i = 0
-        while i < len(comma_parts):
-            if i + 1 < len(comma_parts):
-                pair = f"{comma_parts[i]}，{comma_parts[i + 1]}"
-                if is_gloss_like_clause(pair):
-                    if rem_buf:
-                        rem_units.append("，".join(rem_buf))
-                        rem_buf = []
-                    ann_units.append(pair)
-                    i += 2
-                    continue
-            rem_buf.append(comma_parts[i])
-            i += 1
-
-        if rem_buf:
-            rem_units.append("，".join(rem_buf))
-
-    ann_units = [u.strip() for u in ann_units if u.strip()]
-    rem_units = [u.strip() for u in rem_units if u.strip()]
-    if not ann_units and not rem_units:
-        return [], [text]
-    return ann_units, rem_units
+    return units if units else [text.strip()]
 
 
 def interp_score(text: str) -> int:
@@ -456,10 +435,14 @@ def smart_expand_interpretation_ranges(
                 next_center = centers[idx + 1]
                 right_limit = min(right_limit, next_center - 1)
 
+            # Preserve anchor sentence(s) for this interpretation.
+            left_limit = min(left_limit, start_sid)
+            right_limit = max(right_limit, end_sid)
+
             left = max(start_sid, left_limit)
             right = min(end_sid, right_limit)
             if left > right:
-                left = right = min(max(center, left_limit), right_limit)
+                left = right = start_sid
 
             rel = {}
             for sid in range(left_limit, right_limit + 1):
@@ -524,6 +507,21 @@ def detect_sentence_columns(ws, header_row: int) -> List[int]:
     return sentence_cols
 
 
+def resolve_layout_rows(ws, fallback_header_row: int, fallback_data_start: int) -> Tuple[int, int]:
+    """Detect actual header/data rows.
+
+    Supports variants where row 1 is only chapter title and row 2 has field headers.
+    """
+    meta_need = {"朝代", "书名"}
+    for r in range(1, min(8, ws.max_row + 1)):
+        row_vals = {normalize(ws.cell(r, c).value) for c in range(1, min(ws.max_column, 40) + 1)}
+        row_vals.discard("")
+        # Need at least core meta headers and one role header.
+        if meta_need.issubset(row_vals) and ("注者" in row_vals or "负责人" in row_vals or "分工" in row_vals):
+            return r, r + 1
+    return fallback_header_row, fallback_data_start
+
+
 def detect_meta_columns(ws, header_row: int, data_start: int, first_sentence_col: int) -> Tuple[int, int, int]:
     """Return (commentator_col, dynasty_col, book_col)."""
     header_to_col: Dict[str, int] = {}
@@ -582,15 +580,18 @@ def rebuild(raw_path: str, template_path: str, out_path: str, sync_to_raw: bool 
     sentence_maps: Dict[str, List[Tuple[int, int, str]]] = {}
     max_sid_by_text: Dict[int, int] = {}
     sentence_text_by_text: Dict[int, Dict[int, str]] = {}
+    layout_rows: Dict[str, Tuple[int, int]] = {}
 
     for cfg in TEXT_CONFIGS:
         ws = raw_wb[cfg.sheet]
+        actual_header_row, actual_data_start = resolve_layout_rows(ws, cfg.header_row, cfg.data_start)
+        layout_rows[cfg.sheet] = (actual_header_row, actual_data_start)
         sentence_maps[cfg.sheet] = []
         sid = 1
-        sentence_cols = detect_sentence_columns(ws, cfg.header_row)
+        sentence_cols = detect_sentence_columns(ws, actual_header_row)
         sentence_text_by_text[cfg.text_id] = {}
         for col in sentence_cols:
-            sentence = normalize(ws.cell(cfg.header_row, col).value)
+            sentence = normalize(ws.cell(actual_header_row, col).value)
             if not sentence:
                 continue
             sentence_maps[cfg.sheet].append((col, sid, sentence))
@@ -604,13 +605,14 @@ def rebuild(raw_path: str, template_path: str, out_path: str, sync_to_raw: bool 
 
     for cfg in TEXT_CONFIGS:
         ws = raw_wb[cfg.sheet]
+        actual_header_row, actual_data_start = layout_rows[cfg.sheet]
         headers = sentence_maps[cfg.sheet]
         first_sentence_col = headers[0][0] if headers else ws.max_column + 1
         commentator_col, dynasty_col, book_col = detect_meta_columns(
-            ws, cfg.header_row, cfg.data_start, first_sentence_col
+            ws, actual_header_row, actual_data_start, first_sentence_col
         )
 
-        for r in range(cfg.data_start, ws.max_row + 1):
+        for r in range(actual_data_start, ws.max_row + 1):
             commentator = normalize(ws.cell(r, commentator_col).value)
             if not commentator:
                 continue
@@ -622,28 +624,17 @@ def rebuild(raw_path: str, template_path: str, out_path: str, sync_to_raw: bool 
                 text = normalize(ws.cell(r, col).value)
                 if not text:
                     continue
-                ann_units, rem_units = partition_cell_text(text)
-                for unit in ann_units:
-                    annotation_rows.append([cfg.text_id, sid, commentator, dynasty, unit])
-
+                units = split_cell_by_sentence(text)
                 interp_units: List[str] = []
-                for unit in rem_units:
+                for unit in units:
                     kind = classify_cell(cfg.sheet, r, book, commentator, unit)
-                    # For mixed-cell splitting, non-gloss units default to interpretation
-                    # unless they are clear short lexical notes.
-                    if kind == "annotation" and not has_hard_annotation_marker(unit):
-                        u_i_score = interp_score(unit)
-                        u_punct = unit.count("。") + unit.count("；") + unit.count(";") + unit.count("，")
-                        if len(unit) >= 22 and u_i_score >= 2 and u_punct >= 1:
-                            kind = "interpretation"
-
                     if kind == "annotation":
                         annotation_rows.append([cfg.text_id, sid, commentator, dynasty, unit])
                     else:
                         interp_units.append(unit)
 
                 if interp_units:
-                    merged_unit_text = "。".join(interp_units) if len(interp_units) > 1 else interp_units[0]
+                    merged_unit_text = "".join(interp_units)
                     row_interp_cells.append((sid, merged_unit_text))
 
             for start_sid, end_sid, merged_text in merge_interpretation_segments(row_interp_cells):
