@@ -753,6 +753,45 @@
           return section;
         }
 
+        function renderCoveredInterpretationSection(text, notes) {
+          const section = document.createElement("section");
+          section.className = "note-section";
+
+          const heading = document.createElement("h4");
+          heading.textContent = "涉及该句的跨句阐释";
+          section.appendChild(heading);
+
+          if (!notes.length) {
+            const empty = document.createElement("p");
+            empty.className = "empty";
+            empty.textContent = "暂无相关内容";
+            section.appendChild(empty);
+            return section;
+          }
+
+          const listEl = document.createElement("div");
+          listEl.className = "note-list";
+
+          notes.forEach((item) => {
+            const noteEl = document.createElement("article");
+            noteEl.className = "note";
+
+            const contentEl = document.createElement("p");
+            contentEl.className = "note-content";
+            contentEl.textContent = `注者：${item.commentator}（${item.dynasty}）\n原文：${sentenceRangeText(
+              text,
+              item.start_sentence_id,
+              item.end_sentence_id
+            )}\n阐释：${item.content}`;
+
+            noteEl.appendChild(contentEl);
+            listEl.appendChild(noteEl);
+          });
+
+          section.appendChild(listEl);
+          return section;
+        }
+
         function openModal(title, subtitle, sections) {
           dialogTitleEl.textContent = title;
           dialogSubEl.textContent = subtitle;
@@ -770,11 +809,7 @@
 
           const sections = [
             renderAnnotationSection(annotations),
-            renderNoteSection(
-              "涉及该句的跨句阐释",
-              coveredInterpretations,
-              (item) => `（句段 ${item.start_sentence_id}-${item.end_sentence_id}）${item.content}`
-            ),
+            renderCoveredInterpretationSection(text, coveredInterpretations),
           ];
 
           openModal(
