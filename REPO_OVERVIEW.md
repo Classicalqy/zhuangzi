@@ -7,7 +7,7 @@
 1. 数据源层：`zz.xlsx`
 2. 结构化处理层：`rebuild_zhuangzi_tables.py`
 3. 前端数据层：`generate_web_data.py` -> `data.js`
-4. 展示层：`index.html`
+4. 展示层：`index.html`（首页） + `reader.html`（阅读器）
 
 ## 主流程细节
 1. `rebuild_zhuangzi_tables.py`
@@ -28,8 +28,10 @@
   - `interpretations`: 跨句阐释数组
 - 生成 `window.ZZ_DATA = ...` 到 `data.js`。
 
-3. `index.html`
+3. `index.html` + `reader.html`
 - 单页原生 JS，无框架依赖。
+- `index.html`：首页（项目统计、篇章入口）。
+- `reader.html`：阅读器（原文、注释、阐释、搜索）。
 - 交互：
   - 篇章切换
   - 原文句点击弹窗（注释 + 覆盖该句的阐释）
@@ -40,7 +42,7 @@
 - 输入：`zz.xlsx`, `template.xlsx`
 - 中间产物：`zz_structured.xlsx`
 - 前端产物：`data.js`
-- 展示页：`index.html`
+- 展示页：`index.html`（首页）, `reader.html`（阅读器）
 
 ## 现状与风险点
 - 规则驱动分类（启发式）可解释性强，但边界样本可能误分。

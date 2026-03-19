@@ -5,19 +5,20 @@
 
 当前数据流如下：
 
-`zz.xlsx` -> `zz_structured.xlsx` -> `data.js` -> `index.html`
+`zz.xlsx` -> `zz_structured.xlsx` -> `data.js` -> `index.html`（首页） / `reader.html`（阅读器）
 
 ## 当前数据规模（来自 `data.js`）
 - 篇章数：3
 - 分句数：956
-- 有注释分句键数：741
-- 跨句阐释条数：1249
+- 有注释分句键数：716
+- 跨句阐释条数：1967
 - 篇章：人间世、逍遥游、养生主
 
 ## 目录说明
 - `rebuild_zhuangzi_tables.py`：核心重建脚本。从原始工作簿抽取并分类为标准化三张表（分句、注释、阐释）。
 - `generate_web_data.py`：将标准化 Excel 转换为前端可直接消费的 `data.js`。
-- `index.html`：纯前端可视化页面（含搜索、句段高亮、弹窗查看注释/阐释）。
+- `index.html`：项目首页（统计总览 + 篇章入口）。
+- `reader.html`：阅读页（搜索、句段高亮、弹窗查看注释/阐释）。
 - `template.xlsx`：标准化输出模板（三张目标表结构）。
 - `zz.xlsx`：原始/工作数据源（含源 Sheet 与同步后的目标表）。
 - `zz_structured.xlsx`：标准化结果文件。
@@ -55,8 +56,9 @@ source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda act
 输出 `data.js`（全量 JSON 载荷挂载到 `window.ZZ_DATA`）。
 
 ### 3) 浏览页面
-直接打开 `index.html`（或用本地静态服务）即可查看：
-- 左侧篇章切换
+直接打开 `index.html`（或用本地静态服务）：
+- 首页可查看统计信息并跳转到各篇章
+- 点击入口进入 `reader.html` 后可使用左侧篇章切换
 - 原文分句展示（可点句查看字义注）
 - 跨句阐释列表（点击后高亮对应句段）
 - 当前篇章范围内全文检索（原文/注释/阐释）
