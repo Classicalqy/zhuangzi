@@ -29,6 +29,13 @@ def normalize_cell_text(value: object) -> str:
     raw = str(value).replace("\r\n", "\n").replace("\r", "\n").strip()
     if not raw:
         return ""
+    return raw
+
+
+def normalize_sentence_text(value: object) -> str:
+    raw = normalize_cell_text(value)
+    if not raw:
+        return ""
     # Treat slash as paragraph delimiter from spreadsheet cells.
     parts = [part.strip() for part in re.split(r"[\\/／]+", raw) if part.strip()]
     return "\n".join(parts).strip()
@@ -186,7 +193,7 @@ def main() -> None:
 
         tid = to_int(text_id)
         sid = to_int(sentence_id)
-        sentence_text = normalize_cell_text(sentence)
+        sentence_text = normalize_sentence_text(sentence)
         if tid is None or sid is None or not sentence_text:
             continue
 
