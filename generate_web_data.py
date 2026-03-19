@@ -37,8 +37,16 @@ def normalize_sentence_text(value: object) -> str:
     if not raw:
         return ""
     # Treat slash as paragraph delimiter from spreadsheet cells.
-    parts = [part.strip() for part in re.split(r"[\\/／]+", raw) if part.strip()]
-    return "\n".join(parts).strip()
+    text = re.sub(r"[\\/／]+", "\n", raw)
+    text = re.sub(r"\n{2,}", "\n", text)
+    return text.strip()
+
+
+def sentence_break_after(value: object) -> bool:
+    raw = normalize_cell_text(value)
+    if not raw:
+        return False
+    return bool(re.search(r"[\\/／]\s*$", raw))
 
 
 def normalize_header(value: object) -> str:
@@ -194,6 +202,7 @@ def main() -> None:
         tid = to_int(text_id)
         sid = to_int(sentence_id)
         sentence_text = normalize_sentence_text(sentence)
+        break_after = sentence_break_after(sentence)
         if tid is None or sid is None or not sentence_text:
             continue
 
@@ -210,6 +219,7 @@ def main() -> None:
             {
                 "sentence_id": sid,
                 "sentence": sentence_text,
+                "break_after": break_after,
                 "has_note": (tid, sid) in sentence_note_keys,
             }
         )

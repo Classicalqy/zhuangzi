@@ -622,6 +622,10 @@
             }
 
             textFlowEl.appendChild(span);
+            if (item.break_after) {
+              textFlowEl.appendChild(document.createElement("br"));
+              textFlowEl.appendChild(document.createElement("br"));
+            }
             state.sentenceNodeMap.set(item.sentence_id, span);
           });
         }
