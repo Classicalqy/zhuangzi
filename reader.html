@@ -218,6 +218,7 @@
       .sentence {
         border-radius: 6px;
         padding: 2px 4px;
+        white-space: pre-wrap;
       }
 
       .sentence.has-annotation {
@@ -372,6 +373,7 @@
       .note-content {
         margin: 0;
         line-height: 1.7;
+        white-space: pre-wrap;
       }
 
       .empty {
@@ -422,7 +424,7 @@
     <div class="layout">
       <aside class="sidebar">
         <h1>庄子注疏可视化</h1>
-        <p>原文按空格连接成连续文本。点击带下划线的分句查看字义注；跨句阐释在下方列表单独查看。</p>
+        <p>原文按分句连续呈现。点击带下划线的分句查看字义注；跨句阐释在下方列表单独查看。</p>
         <a class="home-link" href="index.html">返回首页</a>
         <div id="textList" class="text-list"></div>
       </aside>
@@ -543,7 +545,7 @@
           return text.sentences
             .filter((item) => item.sentence_id >= startId && item.sentence_id <= endId)
             .map((item) => item.sentence)
-            .join(" ");
+            .join("");
         }
 
         function snippet(text, max = 64) {
@@ -589,7 +591,7 @@
           state.sentenceNodeMap.clear();
           textFlowEl.innerHTML = "";
 
-          text.sentences.forEach((item, index) => {
+          text.sentences.forEach((item) => {
             const span = document.createElement("span");
             span.className = "sentence";
             span.dataset.sentenceId = String(item.sentence_id);
@@ -615,9 +617,6 @@
             }
 
             textFlowEl.appendChild(span);
-            if (index < text.sentences.length - 1) {
-              textFlowEl.appendChild(document.createTextNode(" "));
-            }
             state.sentenceNodeMap.set(item.sentence_id, span);
           });
         }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 
 import openpyxl
@@ -22,6 +23,17 @@ def to_int(value: object) -> int | None:
     return int(float(text))
 
 
+def normalize_cell_text(value: object) -> str:
+    if value is None:
+        return ""
+    raw = str(value).replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not raw:
+        return ""
+    # Treat slash as paragraph delimiter from spreadsheet cells.
+    parts = [part.strip() for part in re.split(r"[\\/／]+", raw) if part.strip()]
+    return "\n".join(parts).strip()
+
+
 def main() -> None:
     wb = openpyxl.load_workbook(SOURCE_FILE, data_only=True)
     ws_sent = wb["small_sentences"]
@@ -38,7 +50,8 @@ def main() -> None:
         annotation_id, text_id, sentence_id, commentator, dynasty, annotation = row[:6]
         tid = to_int(text_id)
         sid = to_int(sentence_id)
-        if tid is None or sid is None or not annotation:
+        annotation_text = normalize_cell_text(annotation)
+        if tid is None or sid is None or not annotation_text:
             continue
 
         key = f"{tid}-{sid}"
@@ -48,7 +61,7 @@ def main() -> None:
                 "annotation_id": to_int(annotation_id),
                 "commentator": str(commentator or "未署名"),
                 "dynasty": str(dynasty or "未详"),
-                "content": str(annotation).strip(),
+                "content": annotation_text,
             }
         )
 
@@ -57,7 +70,8 @@ def main() -> None:
         tid = to_int(text_id)
         start_id = to_int(start_sid)
         end_id = to_int(end_sid)
-        if tid is None or start_id is None or end_id is None or not content:
+        content_text = normalize_cell_text(content)
+        if tid is None or start_id is None or end_id is None or not content_text:
             continue
 
         if end_id < start_id:
@@ -74,7 +88,7 @@ def main() -> None:
                 "end_sentence_id": end_id,
                 "commentator": str(commentator or "未署名"),
                 "dynasty": str(dynasty or "未详"),
-                "content": str(content).strip(),
+                "content": content_text,
             }
         )
 
@@ -82,7 +96,8 @@ def main() -> None:
         text_id, text_title, sentence_id, sentence = row[:4]
         tid = to_int(text_id)
         sid = to_int(sentence_id)
-        if tid is None or sid is None or not sentence:
+        sentence_text = normalize_cell_text(sentence)
+        if tid is None or sid is None or not sentence_text:
             continue
 
         text_data = texts.setdefault(
@@ -97,7 +112,7 @@ def main() -> None:
         text_data["sentences"].append(
             {
                 "sentence_id": sid,
-                "sentence": str(sentence).strip(),
+                "sentence": sentence_text,
                 "has_note": (tid, sid) in sentence_note_keys,
             }
         )
