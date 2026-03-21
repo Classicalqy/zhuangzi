@@ -122,6 +122,8 @@ def main() -> None:
 
     annotations_by_key: dict[str, list[dict]] = {}
     interpretations: list[dict] = []
+    interpretation_seen_keys: set[tuple[int, int, int, str, str, str]] = set()
+    interpretation_dedup_count = 0
 
     for row in ws_anno.iter_rows(min_row=2, values_only=True):
         annotation_id = cell(row, anno_id_col)
@@ -178,6 +180,14 @@ def main() -> None:
         if end_id < start_id:
             start_id, end_id = end_id, start_id
 
+        item_commentator = str(commentator or "未署名")
+        item_dynasty = str(dynasty or "未详")
+        dedup_key = (tid, start_id, end_id, item_commentator, item_dynasty, content_text)
+        if dedup_key in interpretation_seen_keys:
+            interpretation_dedup_count += 1
+            continue
+        interpretation_seen_keys.add(dedup_key)
+
         for sid in range(start_id, end_id + 1):
             sentence_note_keys.add((tid, sid))
 
@@ -187,8 +197,8 @@ def main() -> None:
                 "text_id": tid,
                 "start_sentence_id": start_id,
                 "end_sentence_id": end_id,
-                "commentator": str(commentator or "未署名"),
-                "dynasty": str(dynasty or "未详"),
+                "commentator": item_commentator,
+                "dynasty": item_dynasty,
                 "content": content_text,
             }
         )
@@ -237,6 +247,7 @@ def main() -> None:
             "sentence_count": sum(len(item["sentences"]) for item in text_list),
             "annotation_key_count": len(annotations_by_key),
             "interpretation_count": len(interpretations),
+            "interpretation_deduplicated": interpretation_dedup_count,
         },
         "texts": text_list,
         "annotations_by_key": annotations_by_key,
@@ -253,6 +264,7 @@ def main() -> None:
         OUTPUT_FILE,
         f"with {payload['meta']['sentence_count']} sentences and",
         f"{payload['meta']['interpretation_count']} interpretations.",
+        f"Deduplicated {payload['meta']['interpretation_deduplicated']} interpretation rows.",
     )
 
 

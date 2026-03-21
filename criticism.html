@@ -195,13 +195,8 @@
         padding: 10px;
       }
 
-      .panel h4 {
-        margin: 0;
-        font-size: 15px;
-      }
-
       .panel-note {
-        margin-top: 8px;
+        margin-top: 0;
         color: var(--muted);
         font-size: 13px;
       }
@@ -434,40 +429,6 @@
           return el;
         }
 
-        function renderDefs(svg) {
-          const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-
-          const mkGreen = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-          mkGreen.setAttribute("id", "arrow-green");
-          mkGreen.setAttribute("viewBox", "0 0 10 10");
-          mkGreen.setAttribute("refX", "8");
-          mkGreen.setAttribute("refY", "5");
-          mkGreen.setAttribute("markerWidth", "7");
-          mkGreen.setAttribute("markerHeight", "7");
-          mkGreen.setAttribute("orient", "auto");
-          const pGreen = document.createElementNS("http://www.w3.org/2000/svg", "path");
-          pGreen.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
-          pGreen.setAttribute("fill", "#2c8d50");
-          mkGreen.appendChild(pGreen);
-
-          const mkRed = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-          mkRed.setAttribute("id", "arrow-red");
-          mkRed.setAttribute("viewBox", "0 0 10 10");
-          mkRed.setAttribute("refX", "8");
-          mkRed.setAttribute("refY", "5");
-          mkRed.setAttribute("markerWidth", "7");
-          mkRed.setAttribute("markerHeight", "7");
-          mkRed.setAttribute("orient", "auto");
-          const pRed = document.createElementNS("http://www.w3.org/2000/svg", "path");
-          pRed.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
-          pRed.setAttribute("fill", "#c54842");
-          mkRed.appendChild(pRed);
-
-          defs.appendChild(mkGreen);
-          defs.appendChild(mkRed);
-          svg.appendChild(defs);
-        }
-
         function drawEdges(shell, edges) {
           const svg = shell.querySelector(".graph-svg");
           if (!svg) return;
@@ -479,8 +440,6 @@
           svg.setAttribute("width", String(width));
           svg.setAttribute("height", String(height));
           svg.innerHTML = "";
-
-          renderDefs(svg);
 
           edges.forEach((edge) => {
             const sourceEl = shell.querySelector(`[data-node-id="${edge.source_id}"]`);
@@ -502,7 +461,7 @@
             path.setAttribute("stroke", edge.stance === "Y" ? "#2c8d50" : "#c54842");
             path.setAttribute("stroke-width", "2");
             path.setAttribute("opacity", "0.95");
-            path.setAttribute("marker-end", edge.stance === "Y" ? "url(#arrow-green)" : "url(#arrow-red)");
+            path.setAttribute("stroke-linecap", "round");
             svg.appendChild(path);
           });
         }
@@ -510,12 +469,11 @@
         function renderGraphPanel(group) {
           const panel = document.createElement("section");
           panel.className = "panel";
-          panel.innerHTML = `<h4>评价箭头</h4>`;
 
           if (!group.relations || group.relations.length === 0) {
             const empty = document.createElement("p");
             empty.className = "panel-note";
-            empty.textContent = "本组无评价箭头。";
+            empty.textContent = "本组无评价关系。";
             panel.appendChild(empty);
             return panel;
           }
@@ -552,7 +510,6 @@
         function renderRefPanel(group) {
           const panel = document.createElement("section");
           panel.className = "panel";
-          panel.innerHTML = `<h4>参考（无态度，不画箭头）</h4>`;
 
           const refs = group.references || [];
           if (!refs.length) {
