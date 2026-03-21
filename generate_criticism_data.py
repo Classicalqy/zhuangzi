@@ -10,6 +10,8 @@ import openpyxl
 CRITICISM_SOURCE = "criticism.xlsx"
 TEXT_SOURCE = "zz_structured.xlsx"
 OUTPUT_FILE = "criticism_data.js"
+TEXT_DISPLAY_ORDER = [2, 3, 1]
+TEXT_ORDER_INDEX = {tid: idx for idx, tid in enumerate(TEXT_DISPLAY_ORDER)}
 
 
 def to_int(value: object) -> int | None:
@@ -346,7 +348,9 @@ def main() -> None:
         bucket["groups"].append(group)
 
     text_list: list[dict[str, object]] = []
-    for _, text in sorted(by_text.items(), key=lambda kv: kv[0]):
+    for _, text in sorted(
+        by_text.items(), key=lambda kv: (TEXT_ORDER_INDEX.get(kv[0], 10_000), kv[0])
+    ):
         text["groups"].sort(
             key=lambda g: (
                 int(g["sentence_id"]),

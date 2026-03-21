@@ -8,6 +8,8 @@ import openpyxl
 
 SOURCE_FILE = "zz_structured.xlsx"
 OUTPUT_FILE = "data.js"
+TEXT_DISPLAY_ORDER = [2, 3, 1]
+TEXT_ORDER_INDEX = {tid: idx for idx, tid in enumerate(TEXT_DISPLAY_ORDER)}
 
 
 def to_int(value: object) -> int | None:
@@ -235,7 +237,9 @@ def main() -> None:
         )
 
     text_list = []
-    for _, text_data in sorted(texts.items(), key=lambda item: item[0]):
+    for _, text_data in sorted(
+        texts.items(), key=lambda item: (TEXT_ORDER_INDEX.get(item[0], 10_000), item[0])
+    ):
         text_data["sentences"].sort(key=lambda s: s["sentence_id"])
         text_list.append(text_data)
 
