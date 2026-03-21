@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>后人对古人的评价</title>
+    <style>
+      :root {
+        --bg: #f3ecdf;
+        --ink: #2d261b;
+        --muted: #75634d;
+        --line: #d8ccb8;
+        --panel: #fff9ef;
+        --accent: #8f642d;
+        --yes: #2c8d50;
+        --no: #c54842;
+        --ref: #9f7a3a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: radial-gradient(circle at 0% 0%, #fff7e8 0%, var(--bg) 55%, #ece0ce 100%);
+        font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif;
+      }
+
+      .layout {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        padding: 16px 14px;
+        border-right: 1px solid var(--line);
+        background: linear-gradient(180deg, #fbf3e4 0%, #f1e5d2 100%);
+        overflow: auto;
+      }
+
+      .sidebar h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .sidebar p {
+        margin: 10px 0 14px;
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 13px;
+      }
+
+      .home-link {
+        display: inline-block;
+        margin-bottom: 12px;
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 13px;
+      }
+
+      .home-link:hover {
+        text-decoration: underline;
+      }
+
+      .text-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .text-btn {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        text-align: left;
+        font-size: 15px;
+        background: rgba(255, 250, 239, 0.82);
+        color: var(--ink);
+        cursor: pointer;
+      }
+
+      .text-btn:hover {
+        border-color: var(--accent);
+      }
+
+      .text-btn.active {
+        border-color: var(--accent);
+        background: #f4e4ca;
+        font-weight: 700;
+      }
+
+      .main {
+        padding: 18px 22px 28px;
+        overflow: auto;
+      }
+
+      .head h2 {
+        margin: 0;
+        font-size: 30px;
+      }
+
+      .summary {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .legend {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .legend-item {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        background: #fff;
+      }
+
+      .legend-item.y {
+        color: var(--yes);
+        border-color: #9ccdae;
+      }
+
+      .legend-item.n {
+        color: var(--no);
+        border-color: #e1aaa7;
+      }
+
+      .legend-item.ref {
+        color: var(--ref);
+        border-color: #d8c29b;
+      }
+
+      .sentence-block {
+        margin-top: 18px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255, 251, 243, 0.92);
+        padding: 14px;
+      }
+
+      .sentence-head {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .sentence-text {
+        margin-top: 8px;
+        border-left: 3px solid #d8c29b;
+        padding: 8px 10px;
+        line-height: 1.8;
+        background: #fffdf8;
+        border-radius: 8px;
+        white-space: pre-wrap;
+      }
+
+      .groups {
+        margin-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .group-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 12px;
+      }
+
+      .group-title {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .group-grid {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fffdf8;
+        padding: 10px;
+      }
+
+      .panel h4 {
+        margin: 0;
+        font-size: 15px;
+      }
+
+      .panel-note {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .graph-shell {
+        position: relative;
+        margin-top: 8px;
+      }
+
+      .graph-columns {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 130px;
+      }
+
+      .graph-col {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .graph-node {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        padding: 8px;
+      }
+
+      .graph-node .author {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .graph-node .text {
+        margin-top: 4px;
+        font-size: 14px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+      }
+
+      .graph-svg {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      .ref-list {
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .ref-item {
+        border: 1px solid #d8c29b;
+        border-radius: 9px;
+        background: #fffdf8;
+        padding: 8px;
+      }
+
+      .ref-author {
+        font-size: 12px;
+        color: #8d6a2c;
+      }
+
+      .ref-text {
+        margin-top: 3px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+
+      .empty {
+        color: var(--muted);
+        margin-top: 8px;
+      }
+
+      @media (max-width: 1100px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          border-right: none;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .text-list {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .group-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .text-list {
+          grid-template-columns: 1fr;
+        }
+
+        .graph-columns {
+          grid-template-columns: 1fr;
+          row-gap: 10px;
+        }
+
+        .graph-svg {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <h1>后人对古人的评价</h1>
+        <p>按分句查看注疏评价关系。绿色表示支持，红色表示否定；无态度记录作为“参考”展示。</p>
+        <a class="home-link" href="index.html">返回首页</a>
+        <div id="textList" class="text-list"></div>
+      </aside>
+
+      <main class="main">
+        <section class="head">
+          <h2 id="title"></h2>
+          <div id="summary" class="summary"></div>
+          <div class="legend">
+            <span class="legend-item y">Y 支持（绿）</span>
+            <span class="legend-item n">N 否定（红）</span>
+            <span class="legend-item ref">无态度：参考（不画箭头）</span>
+          </div>
+        </section>
+
+        <div id="sentenceContainer"></div>
+      </main>
+    </div>
+
+    <script src="criticism_data.js"></script>
+    <script>
+      (function () {
+        const data = window.CRITICISM_DATA;
+        if (!data || !Array.isArray(data.texts) || data.texts.length === 0) {
+          document.body.innerHTML = '<p style="padding:20px;">评价数据未加载成功，请先运行 generate_criticism_data.py。</p>';
+          return;
+        }
+
+        const textListEl = document.getElementById("textList");
+        const titleEl = document.getElementById("title");
+        const summaryEl = document.getElementById("summary");
+        const sentenceContainerEl = document.getElementById("sentenceContainer");
+
+        const textById = new Map(data.texts.map((item) => [item.text_id, item]));
+        const state = {
+          currentTextId: data.texts[0].text_id,
+        };
+
+        function currentText() {
+          return textById.get(state.currentTextId);
+        }
+
+        function queryTextId() {
+          const raw = new URLSearchParams(window.location.search).get("text_id");
+          const id = Number.parseInt(raw || "", 10);
+          if (Number.isNaN(id)) return null;
+          return textById.has(id) ? id : null;
+        }
+
+        function syncQueryTextId(textId) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("text_id", String(textId));
+          history.replaceState(null, "", `${url.pathname}?${url.searchParams.toString()}`);
+        }
+
+        function dedupeGraph(relations) {
+          const sourceMap = new Map();
+          const targetMap = new Map();
+          const edgeMap = new Map();
+
+          const sources = [];
+          const targets = [];
+
+          function sourceId(author, text) {
+            const key = `${author}||${text}`;
+            if (!sourceMap.has(key)) {
+              const id = `s${sources.length + 1}`;
+              sourceMap.set(key, id);
+              sources.push({ id, key, author, text });
+            }
+            return sourceMap.get(key);
+          }
+
+          function targetId(author, text) {
+            const key = `${author}||${text}`;
+            if (!targetMap.has(key)) {
+              const id = `t${targets.length + 1}`;
+              targetMap.set(key, id);
+              targets.push({ id, key, author, text });
+            }
+            return targetMap.get(key);
+          }
+
+          relations.forEach((item) => {
+            const sid = sourceId(item.from_author || "未署名", item.from_text || "（无原文）");
+            const tid = targetId(item.to_author || "未署名", item.eval_text || "（无评价语）");
+            const stance = item.stance === "Y" ? "Y" : "N";
+            const edgeKey = `${sid}>${tid}>${stance}`;
+            if (!edgeMap.has(edgeKey)) {
+              edgeMap.set(edgeKey, {
+                source_id: sid,
+                target_id: tid,
+                stance,
+              });
+            }
+          });
+
+          return {
+            sources,
+            targets,
+            edges: Array.from(edgeMap.values()),
+          };
+        }
+
+        function createNode(node, cls) {
+          const el = document.createElement("article");
+          el.className = `graph-node ${cls}`;
+          el.dataset.nodeId = node.id;
+          el.innerHTML = `<div class="author">${node.author}</div><div class="text">${node.text}</div>`;
+          return el;
+        }
+
+        function renderDefs(svg) {
+          const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+
+          const mkGreen = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+          mkGreen.setAttribute("id", "arrow-green");
+          mkGreen.setAttribute("viewBox", "0 0 10 10");
+          mkGreen.setAttribute("refX", "8");
+          mkGreen.setAttribute("refY", "5");
+          mkGreen.setAttribute("markerWidth", "7");
+          mkGreen.setAttribute("markerHeight", "7");
+          mkGreen.setAttribute("orient", "auto");
+          const pGreen = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          pGreen.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+          pGreen.setAttribute("fill", "#2c8d50");
+          mkGreen.appendChild(pGreen);
+
+          const mkRed = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+          mkRed.setAttribute("id", "arrow-red");
+          mkRed.setAttribute("viewBox", "0 0 10 10");
+          mkRed.setAttribute("refX", "8");
+          mkRed.setAttribute("refY", "5");
+          mkRed.setAttribute("markerWidth", "7");
+          mkRed.setAttribute("markerHeight", "7");
+          mkRed.setAttribute("orient", "auto");
+          const pRed = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          pRed.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+          pRed.setAttribute("fill", "#c54842");
+          mkRed.appendChild(pRed);
+
+          defs.appendChild(mkGreen);
+          defs.appendChild(mkRed);
+          svg.appendChild(defs);
+        }
+
+        function drawEdges(shell, edges) {
+          const svg = shell.querySelector(".graph-svg");
+          if (!svg) return;
+
+          const shellRect = shell.getBoundingClientRect();
+          const width = Math.max(220, Math.round(shellRect.width));
+          const height = Math.max(100, Math.round(shell.scrollHeight));
+          svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+          svg.setAttribute("width", String(width));
+          svg.setAttribute("height", String(height));
+          svg.innerHTML = "";
+
+          renderDefs(svg);
+
+          edges.forEach((edge) => {
+            const sourceEl = shell.querySelector(`[data-node-id="${edge.source_id}"]`);
+            const targetEl = shell.querySelector(`[data-node-id="${edge.target_id}"]`);
+            if (!sourceEl || !targetEl) return;
+
+            const sRect = sourceEl.getBoundingClientRect();
+            const tRect = targetEl.getBoundingClientRect();
+
+            const x1 = sRect.right - shellRect.left + 2;
+            const y1 = sRect.top - shellRect.top + sRect.height / 2;
+            const x2 = tRect.left - shellRect.left - 2;
+            const y2 = tRect.top - shellRect.top + tRect.height / 2;
+            const midX = (x1 + x2) / 2;
+
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+            path.setAttribute("fill", "none");
+            path.setAttribute("stroke", edge.stance === "Y" ? "#2c8d50" : "#c54842");
+            path.setAttribute("stroke-width", "2");
+            path.setAttribute("opacity", "0.95");
+            path.setAttribute("marker-end", edge.stance === "Y" ? "url(#arrow-green)" : "url(#arrow-red)");
+            svg.appendChild(path);
+          });
+        }
+
+        function renderGraphPanel(group) {
+          const panel = document.createElement("section");
+          panel.className = "panel";
+          panel.innerHTML = `<h4>评价箭头</h4>`;
+
+          if (!group.relations || group.relations.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "panel-note";
+            empty.textContent = "本组无评价箭头。";
+            panel.appendChild(empty);
+            return panel;
+          }
+
+          const graph = dedupeGraph(group.relations);
+
+          const shell = document.createElement("div");
+          shell.className = "graph-shell";
+
+          const columns = document.createElement("div");
+          columns.className = "graph-columns";
+
+          const left = document.createElement("div");
+          left.className = "graph-col";
+          graph.sources.forEach((node) => left.appendChild(createNode(node, "source")));
+
+          const right = document.createElement("div");
+          right.className = "graph-col";
+          graph.targets.forEach((node) => right.appendChild(createNode(node, "target")));
+
+          const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          svg.classList.add("graph-svg");
+
+          columns.appendChild(left);
+          columns.appendChild(right);
+          shell.appendChild(svg);
+          shell.appendChild(columns);
+          panel.appendChild(shell);
+
+          requestAnimationFrame(() => drawEdges(shell, graph.edges));
+          return panel;
+        }
+
+        function renderRefPanel(group) {
+          const panel = document.createElement("section");
+          panel.className = "panel";
+          panel.innerHTML = `<h4>参考（无态度，不画箭头）</h4>`;
+
+          const refs = group.references || [];
+          if (!refs.length) {
+            const empty = document.createElement("p");
+            empty.className = "panel-note";
+            empty.textContent = "无参考条目。";
+            panel.appendChild(empty);
+            return panel;
+          }
+
+          const list = document.createElement("div");
+          list.className = "ref-list";
+          refs.forEach((item) => {
+            const card = document.createElement("article");
+            card.className = "ref-item";
+            card.innerHTML = `<div class="ref-author">${item.ref_author || "未署名"}</div><div class="ref-text">${item.ref_text || "（空）"}</div>`;
+            list.appendChild(card);
+          });
+          panel.appendChild(list);
+          return panel;
+        }
+
+        function renderTextList() {
+          textListEl.innerHTML = "";
+          data.texts.forEach((text) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "text-btn" + (text.text_id === state.currentTextId ? " active" : "");
+            btn.textContent = text.text_title;
+            btn.addEventListener("click", () => {
+              state.currentTextId = text.text_id;
+              syncQueryTextId(text.text_id);
+              renderAll();
+            });
+            textListEl.appendChild(btn);
+          });
+        }
+
+        function renderHeader() {
+          const text = currentText();
+          titleEl.textContent = `${text.text_title}｜后人对古人的评价`;
+          summaryEl.textContent = `共 ${text.group_count} 个 group；评价箭头关系 ${text.relation_count} 条；参考条目 ${text.reference_count} 条。`;
+        }
+
+        function renderSentenceBlocks() {
+          const text = currentText();
+          sentenceContainerEl.innerHTML = "";
+
+          if (!text.groups || text.groups.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "empty";
+            empty.textContent = "暂无该篇章评价数据。";
+            sentenceContainerEl.appendChild(empty);
+            return;
+          }
+
+          const sentenceMap = new Map();
+          text.groups.forEach((group) => {
+            const key = String(group.sentence_id);
+            if (!sentenceMap.has(key)) {
+              sentenceMap.set(key, {
+                sentence_id: group.sentence_id,
+                sentence: group.sentence,
+                groups: [],
+              });
+            }
+            sentenceMap.get(key).groups.push(group);
+          });
+
+          Array.from(sentenceMap.values())
+            .sort((a, b) => a.sentence_id - b.sentence_id)
+            .forEach((sentenceBlock) => {
+              const block = document.createElement("section");
+              block.className = "sentence-block";
+
+              const head = document.createElement("h3");
+              head.className = "sentence-head";
+              head.textContent = `第 ${sentenceBlock.sentence_id} 句`;
+
+              const sentenceEl = document.createElement("div");
+              sentenceEl.className = "sentence-text";
+              sentenceEl.textContent = sentenceBlock.sentence || "（未找到原句）";
+
+              const groupsEl = document.createElement("div");
+              groupsEl.className = "groups";
+
+              sentenceBlock.groups.forEach((group, idx) => {
+                const card = document.createElement("article");
+                card.className = "group-card";
+
+                const title = document.createElement("h4");
+                title.className = "group-title";
+                const label = group.group_id || group.group_token || `组${idx + 1}`;
+                title.textContent = `Group ${label}`;
+
+                const grid = document.createElement("div");
+                grid.className = "group-grid";
+                grid.appendChild(renderGraphPanel(group));
+                grid.appendChild(renderRefPanel(group));
+
+                card.appendChild(title);
+                card.appendChild(grid);
+                groupsEl.appendChild(card);
+              });
+
+              block.appendChild(head);
+              block.appendChild(sentenceEl);
+              block.appendChild(groupsEl);
+              sentenceContainerEl.appendChild(block);
+            });
+        }
+
+        let resizeTimer = null;
+        window.addEventListener("resize", () => {
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            renderSentenceBlocks();
+          }, 120);
+        });
+
+        function renderAll() {
+          renderTextList();
+          renderHeader();
+          renderSentenceBlocks();
+        }
+
+        state.currentTextId = queryTextId() ?? state.currentTextId;
+        syncQueryTextId(state.currentTextId);
+        renderAll();
+      })();
+    </script>
+  </body>
+</html>
