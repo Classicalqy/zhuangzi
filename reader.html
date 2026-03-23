@@ -571,17 +571,39 @@
       }
 
       @media (max-width: 960px) {
+        body {
+          height: auto;
+          min-height: 100vh;
+          overflow: auto;
+        }
+
         .layout {
+          height: auto;
+          min-height: 100vh;
           grid-template-columns: 1fr;
+          grid-template-rows: auto 1fr;
         }
 
         .sidebar {
+          height: auto;
+          max-height: none;
+          overflow: visible;
           border-right: none;
           border-bottom: 1px solid var(--line);
         }
 
         .layout.sidebar-collapsed .sidebar {
           display: none;
+        }
+
+        .main {
+          height: auto;
+          min-height: 0;
+          overflow: visible;
+        }
+
+        .sidebar-toggle {
+          position: static;
         }
 
         .text-list {
@@ -1024,7 +1046,7 @@
 
             const snip = document.createElement("div");
             snip.className = "interp-snippet";
-            snip.textContent = snippet(sentenceRangeText(text, item.start_sentence_id, item.end_sentence_id), 88);
+            snip.textContent = snippet(item.content || "（暂无阐释内容）", 88);
 
             btn.appendChild(meta);
             btn.appendChild(snip);

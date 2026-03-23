@@ -365,17 +365,39 @@
       }
 
       @media (max-width: 1100px) {
+        body {
+          height: auto;
+          min-height: 100vh;
+          overflow: auto;
+        }
+
         .layout {
+          height: auto;
+          min-height: 100vh;
           grid-template-columns: 1fr;
+          grid-template-rows: auto 1fr;
         }
 
         .sidebar {
+          height: auto;
+          max-height: none;
+          overflow: visible;
           border-right: none;
           border-bottom: 1px solid var(--line);
         }
 
         .layout.sidebar-collapsed .sidebar {
           display: none;
+        }
+
+        .main {
+          height: auto;
+          min-height: 0;
+          overflow: visible;
+        }
+
+        .sidebar-toggle {
+          position: static;
         }
 
         .text-list {
