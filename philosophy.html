@@ -32,7 +32,12 @@
       .layout {
         min-height: 100vh;
         display: grid;
-        grid-template-columns: 290px minmax(0, 1fr);
+        grid-template-columns: 320px minmax(0, 1fr);
+        transition: grid-template-columns 0.22s ease;
+      }
+
+      .layout.sidebar-collapsed {
+        grid-template-columns: 0 minmax(0, 1fr);
       }
 
       .sidebar {
@@ -40,33 +45,63 @@
         border-right: 1px solid var(--line);
         background: linear-gradient(180deg, #f9f1e2 0%, #efe2cc 100%);
         overflow: auto;
+        transition:
+          opacity 0.18s ease,
+          padding 0.18s ease,
+          border-color 0.18s ease;
+      }
+
+      .layout.sidebar-collapsed .sidebar {
+        opacity: 0;
+        padding: 0;
+        border-right-color: transparent;
+        pointer-events: none;
       }
 
       .sidebar h1 {
         margin: 0;
-        font-size: 24px;
+        font-size: 26px;
       }
 
       .sidebar p {
         margin: 10px 0 14px;
         color: var(--muted);
-        font-size: 13px;
+        font-size: 14px;
         line-height: 1.65;
       }
 
-      .nav-links {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
+      .sidebar-block {
+        margin-top: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255, 251, 243, 0.72);
+        padding: 10px;
       }
 
-      .nav-link {
+      .side-title {
+        margin: 0 0 8px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .side-links {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .side-link {
         color: var(--accent);
         text-decoration: none;
-        font-size: 13px;
+        font-size: 15px;
       }
 
-      .nav-link:hover {
+      .side-link.active {
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      .side-link:hover {
         text-decoration: underline;
       }
 
@@ -77,16 +112,59 @@
         gap: 8px;
       }
 
+      .side-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      .side-stat {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        padding: 6px 7px;
+      }
+
+      .side-stat-label {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.3;
+      }
+
+      .side-stat-value {
+        margin-top: 2px;
+        font-size: 16px;
+      }
+
       .text-btn {
         width: 100%;
         border: 1px solid var(--line);
         border-radius: 10px;
         padding: 10px 12px;
         text-align: left;
-        font-size: 15px;
+        font-size: 16px;
         color: var(--ink);
         background: rgba(255, 250, 239, 0.86);
         cursor: pointer;
+      }
+
+      .sidebar-toggle {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        color: var(--ink);
+        min-height: 34px;
+        padding: 0 12px;
+        font-size: 14px;
+        cursor: pointer;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        margin-bottom: 12px;
+      }
+
+      .sidebar-toggle:hover {
+        border-color: var(--accent);
       }
 
       .text-btn:hover {
@@ -208,6 +286,10 @@
           border-bottom: 1px solid var(--line);
         }
 
+        .layout.sidebar-collapsed .sidebar {
+          display: none;
+        }
+
         .text-list {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -226,14 +308,30 @@
       <aside class="sidebar">
         <h1>哲学词典</h1>
         <p>按篇章查看概念、内涵外延和注家条目。可在右侧输入关键词筛选词条。</p>
-        <div class="nav-links">
-          <a class="nav-link" href="index.html">返回首页</a>
-          <a class="nav-link" href="criticism.html">后人对前人的评价</a>
-        </div>
-        <div id="textList" class="text-list"></div>
+
+        <section class="sidebar-block">
+          <h3 class="side-title">平台目录</h3>
+          <nav class="side-links">
+            <a class="side-link" href="index.html">首页</a>
+            <a class="side-link" href="reader.html">庄子注疏可视化</a>
+            <a class="side-link" href="criticism.html">后人对前人的评价</a>
+            <a class="side-link active" href="philosophy.html">哲学词典</a>
+          </nav>
+        </section>
+
+        <section class="sidebar-block">
+          <h3 class="side-title">数据概览</h3>
+          <div id="sideStats" class="side-stats"></div>
+        </section>
+
+        <section class="sidebar-block">
+          <h3 class="side-title">篇章目录</h3>
+          <div id="textList" class="text-list"></div>
+        </section>
       </aside>
 
       <main class="main">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-expanded="true">收起目录</button>
         <section class="head">
           <h2 id="title"></h2>
           <div id="summary" class="summary"></div>
@@ -254,7 +352,10 @@
           return;
         }
 
+        const layoutEl = document.querySelector(".layout");
+        const sidebarToggleEl = document.getElementById("sidebarToggle");
         const textListEl = document.getElementById("textList");
+        const sideStatsEl = document.getElementById("sideStats");
         const titleEl = document.getElementById("title");
         const summaryEl = document.getElementById("summary");
         const conceptListEl = document.getElementById("conceptList");
@@ -264,7 +365,9 @@
         const state = {
           currentTextId: data.texts[0].text_id,
           keyword: "",
+          sidebarCollapsed: false,
         };
+        const SIDEBAR_COLLAPSE_KEY = "zz_sidebar_collapsed";
 
         function currentText() {
           return textById.get(state.currentTextId);
@@ -281,6 +384,16 @@
           const url = new URL(window.location.href);
           url.searchParams.set("text_id", String(textId));
           history.replaceState(null, "", `${url.pathname}?${url.searchParams.toString()}`);
+        }
+
+        function setSidebarCollapsed(collapsed) {
+          state.sidebarCollapsed = Boolean(collapsed);
+          layoutEl.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+          sidebarToggleEl.textContent = state.sidebarCollapsed ? "展开目录" : "收起目录";
+          sidebarToggleEl.setAttribute("aria-expanded", state.sidebarCollapsed ? "false" : "true");
+          try {
+            localStorage.setItem(SIDEBAR_COLLAPSE_KEY, state.sidebarCollapsed ? "1" : "0");
+          } catch (_) {}
         }
 
         function escapeHtml(raw) {
@@ -326,6 +439,25 @@
           summaryEl.textContent = `词条 ${text.concept_count} 条；注释 ${text.note_count} 条。当前筛选命中 ${filtered.length} 条。`;
         }
 
+        function renderSidebarStats() {
+          const text = currentText();
+          const filtered = filteredConcepts(text);
+          const stats = [
+            { label: "总篇章", value: data.texts.length },
+            { label: "总词条", value: data.meta?.concept_count ?? "-" },
+            { label: "当前词条", value: text.concept_count ?? "-" },
+            { label: "筛选命中", value: filtered.length },
+          ];
+
+          sideStatsEl.innerHTML = "";
+          stats.forEach((item) => {
+            const card = document.createElement("div");
+            card.className = "side-stat";
+            card.innerHTML = `<div class="side-stat-label">${item.label}</div><div class="side-stat-value">${item.value}</div>`;
+            sideStatsEl.appendChild(card);
+          });
+        }
+
         function renderConcepts() {
           const text = currentText();
           const list = filteredConcepts(text);
@@ -368,15 +500,27 @@
 
         function renderAll() {
           renderTextList();
+          renderSidebarStats();
           renderHeader();
           renderConcepts();
         }
 
         searchInputEl.addEventListener("input", () => {
           state.keyword = searchInputEl.value || "";
+          renderSidebarStats();
           renderHeader();
           renderConcepts();
         });
+
+        sidebarToggleEl.addEventListener("click", () => {
+          setSidebarCollapsed(!state.sidebarCollapsed);
+        });
+
+        try {
+          setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "1");
+        } catch (_) {
+          setSidebarCollapsed(false);
+        }
 
         state.currentTextId = queryTextId() ?? state.currentTextId;
         syncQueryTextId(state.currentTextId);
