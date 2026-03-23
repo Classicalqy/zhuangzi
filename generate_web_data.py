@@ -117,6 +117,11 @@ def main() -> None:
     interp_end_col = pick_col(interp_header, ["end_sentence_id", "endsentenceid", "结束句id", "結束句id"], 4)
     interp_commentator_col = pick_col(interp_header, ["commentator", "注者", "作者"], 5)
     interp_dynasty_col = pick_col(interp_header, ["dynasty", "朝代"], 6)
+    interp_tendency_col = pick_col(
+        interp_header,
+        ["tendency", "tendancy", "派别", "派別", "儒释道", "儒釋道", "学派", "學派", "立场", "立場"],
+        0,
+    )
     interp_content_col = pick_col(interp_header, ["interpretation", "content", "阐释", "闡釋", "解释", "解釋"], 7)
 
     texts: dict[int, dict] = {}
@@ -127,7 +132,7 @@ def main() -> None:
     annotation_group_map: dict[tuple[int, int, str, str], dict] = {}
     annotation_order_map: dict[str, list[tuple[int, int, str, str]]] = {}
     interpretations: list[dict] = []
-    interpretation_seen_keys: set[tuple[int, int, int, str, str, str]] = set()
+    interpretation_seen_keys: set[tuple[int, int, int, str, str, str, str]] = set()
     interpretation_dedup_count = 0
 
     for row in ws_anno.iter_rows(min_row=2, values_only=True):
@@ -183,6 +188,7 @@ def main() -> None:
         end_sid = cell(row, interp_end_col)
         commentator = cell(row, interp_commentator_col)
         dynasty = cell(row, interp_dynasty_col)
+        tendency = cell(row, interp_tendency_col)
         content = cell(row, interp_content_col)
 
         tid = to_int(text_id)
@@ -197,7 +203,8 @@ def main() -> None:
 
         item_commentator = str(commentator or "未署名")
         item_dynasty = str(dynasty or "未详")
-        dedup_key = (tid, start_id, end_id, item_commentator, item_dynasty, content_text)
+        item_tendency = normalize_cell_text(tendency)
+        dedup_key = (tid, start_id, end_id, item_commentator, item_dynasty, item_tendency, content_text)
         if dedup_key in interpretation_seen_keys:
             interpretation_dedup_count += 1
             continue
@@ -214,6 +221,7 @@ def main() -> None:
                 "end_sentence_id": end_id,
                 "commentator": item_commentator,
                 "dynasty": item_dynasty,
+                "tendency": item_tendency,
                 "content": content_text,
             }
         )

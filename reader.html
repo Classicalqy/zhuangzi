@@ -256,6 +256,95 @@
         overflow: auto;
       }
 
+      .interp-tools {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .interp-filter-label {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .interp-filter {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .filter-btn {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 3px 10px;
+        min-height: 30px;
+        background: #fff;
+        color: var(--ink);
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .filter-btn:hover {
+        border-color: var(--accent);
+      }
+
+      .filter-btn.active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        font-weight: 700;
+      }
+
+      .tendency-tag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 6px;
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 12px;
+        border: 1px solid transparent;
+        line-height: 1.4;
+        vertical-align: middle;
+      }
+
+      .tendency-tag.ru {
+        color: #8f3d2d;
+        border-color: #dfb1a7;
+        background: #fff1ed;
+      }
+
+      .tendency-tag.shi {
+        color: #3f6f34;
+        border-color: #b7d1ad;
+        background: #f1fbec;
+      }
+
+      .tendency-tag.dao {
+        color: #1f5f87;
+        border-color: #9dc3dd;
+        background: #edf7ff;
+      }
+
+      .tendency-tag.other {
+        color: #6b5a45;
+        border-color: #d8ccb8;
+        background: #faf5eb;
+      }
+
+      .note-filter-wrap {
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .note-filter-label {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
       .interp-item {
         width: 100%;
         border: 1px solid var(--line);
@@ -471,7 +560,13 @@
         </section>
 
         <section class="section">
-          <h3>跨句阐释</h3>
+          <div class="section-head">
+            <h3>跨句阐释</h3>
+            <div class="interp-tools">
+              <span class="interp-filter-label">筛选：</span>
+              <div id="interpFilter" class="interp-filter"></div>
+            </div>
+          </div>
           <div id="interpList" class="interp-list"></div>
         </section>
       </main>
@@ -505,6 +600,7 @@
 
         const textFlowEl = document.getElementById("textFlow");
         const interpListEl = document.getElementById("interpList");
+        const interpFilterEl = document.getElementById("interpFilter");
 
         const searchInputEl = document.getElementById("searchInput");
         const searchBtnEl = document.getElementById("searchBtn");
@@ -520,11 +616,31 @@
         const closeBtnEl = document.getElementById("closeBtn");
 
         const textById = new Map(data.texts.map((item) => [item.text_id, item]));
+        const TENDENCY_OPTIONS = [
+          { value: "ALL", label: "全部" },
+          { value: "儒", label: "儒" },
+          { value: "释", label: "释" },
+          { value: "道", label: "道" },
+        ];
+
+        function normalizeTendency(value) {
+          const text = String(value || "").trim();
+          if (!text) return "";
+          if (text.includes("儒")) return "儒";
+          if (text.includes("释") || text.includes("釋") || text.includes("佛")) return "释";
+          if (text.includes("道")) return "道";
+          return text;
+        }
+
         const interpretationsByText = {};
         data.interpretations.forEach((item, idx) => {
           const textId = item.text_id;
           if (!interpretationsByText[textId]) interpretationsByText[textId] = [];
-          interpretationsByText[textId].push({ ...item, _idx: idx });
+          interpretationsByText[textId].push({
+            ...item,
+            tendency: normalizeTendency(item.tendency),
+            _idx: idx,
+          });
         });
         Object.keys(interpretationsByText).forEach((key) => {
           interpretationsByText[key].sort(
@@ -547,6 +663,7 @@
 
         const state = {
           currentTextId: queryTextId() ?? data.texts[0].text_id,
+          interpretationTendencyFilter: "ALL",
           highlightedRange: null,
           selectedInterpretationIdx: null,
           sentenceNodeMap: new Map(),
@@ -557,8 +674,42 @@
           return textById.get(state.currentTextId);
         }
 
-        function currentInterpretations() {
+        function currentAllInterpretations() {
           return interpretationsByText[state.currentTextId] || [];
+        }
+
+        function currentInterpretations() {
+          const list = currentAllInterpretations();
+          if (state.interpretationTendencyFilter === "ALL") return list;
+          return list.filter((item) => item.tendency === state.interpretationTendencyFilter);
+        }
+
+        function tendencyClassSuffix(tendency) {
+          const normalized = normalizeTendency(tendency);
+          if (normalized === "儒") return "ru";
+          if (normalized === "释") return "shi";
+          if (normalized === "道") return "dao";
+          return normalized ? "other" : "";
+        }
+
+        function buildTendencyTag(tendency) {
+          const normalized = normalizeTendency(tendency);
+          if (!normalized || normalized === "ALL") return null;
+          const tag = document.createElement("span");
+          const suffix = tendencyClassSuffix(normalized);
+          tag.className = `tendency-tag${suffix ? ` ${suffix}` : ""}`;
+          tag.textContent = normalized;
+          return tag;
+        }
+
+        function setMetaWithTendency(container, commentator, dynasty, tendency, prefix = "", suffix = "") {
+          container.innerHTML = "";
+          container.appendChild(document.createTextNode(`${prefix}${commentator}（${dynasty}）`));
+          const tag = buildTendencyTag(tendency);
+          if (tag) container.appendChild(tag);
+          if (suffix) {
+            container.appendChild(document.createTextNode(suffix));
+          }
         }
 
         function sentenceRangeText(text, startId, endId) {
@@ -629,14 +780,43 @@
 
         function renderSummary() {
           const text = currentText();
-          const interpCount = currentInterpretations().length;
+          const interpCountAll = currentAllInterpretations().length;
+          const interpCountShown = currentInterpretations().length;
           const annoCount = text.sentences.filter((item) => {
             const key = `${text.text_id}-${item.sentence_id}`;
             return Boolean(data.annotations_by_key[key] && data.annotations_by_key[key].length);
           }).length;
 
           titleEl.textContent = text.text_title;
-          summaryEl.textContent = `共 ${text.sentences.length} 个分句；单句注释命中 ${annoCount} 句；跨句阐释 ${interpCount} 条。`;
+          if (state.interpretationTendencyFilter === "ALL") {
+            summaryEl.textContent = `共 ${text.sentences.length} 个分句；单句注释命中 ${annoCount} 句；跨句阐释 ${interpCountAll} 条。`;
+          } else {
+            summaryEl.textContent = `共 ${text.sentences.length} 个分句；单句注释命中 ${annoCount} 句；跨句阐释 ${interpCountAll} 条（当前筛选「${state.interpretationTendencyFilter}」显示 ${interpCountShown} 条）。`;
+          }
+        }
+
+        function renderInterpretationFilters() {
+          interpFilterEl.innerHTML = "";
+          TENDENCY_OPTIONS.forEach((option) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "filter-btn" + (state.interpretationTendencyFilter === option.value ? " active" : "");
+            btn.textContent = option.label;
+            btn.addEventListener("click", () => {
+              if (state.interpretationTendencyFilter === option.value) return;
+              state.interpretationTendencyFilter = option.value;
+              state.highlightedRange = null;
+              state.selectedInterpretationIdx = null;
+              closeModal();
+              renderAll();
+              if (searchInputEl.value.trim()) {
+                doSearch();
+              } else {
+                clearSearchResults();
+              }
+            });
+            interpFilterEl.appendChild(btn);
+          });
         }
 
         function renderTextFlow() {
@@ -691,14 +871,21 @@
             return;
           }
 
-          list.forEach((item, idx) => {
+          list.forEach((item) => {
             const btn = document.createElement("button");
             btn.type = "button";
-            btn.className = "interp-item" + (state.selectedInterpretationIdx === idx ? " active" : "");
+            btn.className = "interp-item" + (state.selectedInterpretationIdx === item._idx ? " active" : "");
 
             const meta = document.createElement("div");
             meta.className = "interp-meta";
-            meta.textContent = `${item.commentator}（${item.dynasty}）｜句段 ${item.start_sentence_id}-${item.end_sentence_id}`;
+            setMetaWithTendency(
+              meta,
+              item.commentator,
+              item.dynasty,
+              item.tendency,
+              "",
+              `｜句段 ${item.start_sentence_id}-${item.end_sentence_id}`
+            );
 
             const snip = document.createElement("div");
             snip.className = "interp-snippet";
@@ -709,7 +896,7 @@
 
             btn.addEventListener("click", () => {
               state.highlightedRange = { start: item.start_sentence_id, end: item.end_sentence_id };
-              state.selectedInterpretationIdx = idx;
+              state.selectedInterpretationIdx = item._idx;
               renderTextFlow();
               renderInterpretationList();
               scrollToSentence(item.start_sentence_id);
@@ -745,7 +932,7 @@
 
             const metaEl = document.createElement("div");
             metaEl.className = "note-meta";
-            metaEl.textContent = `${item.commentator}（${item.dynasty}）`;
+            setMetaWithTendency(metaEl, item.commentator, item.dynasty, item.tendency);
 
             const contentEl = document.createElement("p");
             contentEl.className = "note-content";
@@ -809,48 +996,88 @@
           heading.textContent = "涉及该句的跨句阐释";
           section.appendChild(heading);
 
-          if (!notes.length) {
-            const empty = document.createElement("p");
-            empty.className = "empty";
-            empty.textContent = "暂无相关内容";
-            section.appendChild(empty);
-            return section;
-          }
+          const localState = { filter: "ALL" };
+          const filterWrap = document.createElement("div");
+          filterWrap.className = "note-filter-wrap";
+          const filterLabel = document.createElement("span");
+          filterLabel.className = "note-filter-label";
+          filterLabel.textContent = "筛选：";
+          const filterContainer = document.createElement("div");
+          filterContainer.className = "interp-filter";
+          filterWrap.appendChild(filterLabel);
+          filterWrap.appendChild(filterContainer);
+          section.appendChild(filterWrap);
 
           const listEl = document.createElement("div");
           listEl.className = "note-list";
-
-          notes.forEach((item) => {
-            const noteEl = document.createElement("article");
-            noteEl.className = "note";
-
-            const commentatorEl = document.createElement("div");
-            commentatorEl.className = "note-meta";
-            commentatorEl.textContent = `注者：${item.commentator}（${item.dynasty}）`;
-
-            const sourceLabelEl = document.createElement("div");
-            sourceLabelEl.className = "note-meta";
-            sourceLabelEl.textContent = "原文：";
-
-            const sourceNode = buildRangeTextNode(text, item.start_sentence_id, item.end_sentence_id);
-
-            const interpLabelEl = document.createElement("div");
-            interpLabelEl.className = "note-meta";
-            interpLabelEl.textContent = "阐释：";
-
-            const interpContentEl = document.createElement("p");
-            interpContentEl.className = "note-content";
-            interpContentEl.textContent = item.content;
-
-            noteEl.appendChild(commentatorEl);
-            noteEl.appendChild(sourceLabelEl);
-            noteEl.appendChild(sourceNode);
-            noteEl.appendChild(interpLabelEl);
-            noteEl.appendChild(interpContentEl);
-            listEl.appendChild(noteEl);
-          });
-
           section.appendChild(listEl);
+
+          function filteredNotes() {
+            if (localState.filter === "ALL") return notes;
+            return notes.filter((item) => normalizeTendency(item.tendency) === localState.filter);
+          }
+
+          function renderFilterButtons() {
+            filterContainer.innerHTML = "";
+            TENDENCY_OPTIONS.forEach((option) => {
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "filter-btn" + (localState.filter === option.value ? " active" : "");
+              btn.textContent = option.label;
+              btn.addEventListener("click", () => {
+                if (localState.filter === option.value) return;
+                localState.filter = option.value;
+                renderFilterButtons();
+                renderList();
+              });
+              filterContainer.appendChild(btn);
+            });
+          }
+
+          function renderList() {
+            listEl.innerHTML = "";
+            const visible = filteredNotes();
+            if (!visible.length) {
+              const empty = document.createElement("p");
+              empty.className = "empty";
+              empty.textContent = notes.length ? "当前筛选暂无相关内容" : "暂无相关内容";
+              listEl.appendChild(empty);
+              return;
+            }
+
+            visible.forEach((item) => {
+              const noteEl = document.createElement("article");
+              noteEl.className = "note";
+
+              const commentatorEl = document.createElement("div");
+              commentatorEl.className = "note-meta";
+              setMetaWithTendency(commentatorEl, item.commentator, item.dynasty, item.tendency, "注者：");
+
+              const sourceLabelEl = document.createElement("div");
+              sourceLabelEl.className = "note-meta";
+              sourceLabelEl.textContent = "原文：";
+
+              const sourceNode = buildRangeTextNode(text, item.start_sentence_id, item.end_sentence_id);
+
+              const interpLabelEl = document.createElement("div");
+              interpLabelEl.className = "note-meta";
+              interpLabelEl.textContent = "阐释：";
+
+              const interpContentEl = document.createElement("p");
+              interpContentEl.className = "note-content";
+              interpContentEl.textContent = item.content;
+
+              noteEl.appendChild(commentatorEl);
+              noteEl.appendChild(sourceLabelEl);
+              noteEl.appendChild(sourceNode);
+              noteEl.appendChild(interpLabelEl);
+              noteEl.appendChild(interpContentEl);
+              listEl.appendChild(noteEl);
+            });
+          }
+
+          renderFilterButtons();
+          renderList();
           return section;
         }
 
@@ -865,7 +1092,7 @@
         function openAnnotationModal(text, sentence) {
           const key = `${text.text_id}-${sentence.sentence_id}`;
           const annotations = data.annotations_by_key[key] || [];
-          const coveredInterpretations = currentInterpretations().filter(
+          const coveredInterpretations = currentAllInterpretations().filter(
             (item) => sentence.sentence_id >= item.start_sentence_id && sentence.sentence_id <= item.end_sentence_id
           );
 
@@ -885,6 +1112,7 @@
           const pseudoNote = {
             commentator: interpretation.commentator,
             dynasty: interpretation.dynasty,
+            tendency: interpretation.tendency,
             content: interpretation.content,
           };
 
@@ -901,7 +1129,7 @@
 
           openModal(
             `【${text.text_title}】句段 ${interpretation.start_sentence_id}-${interpretation.end_sentence_id}`,
-            `${interpretation.commentator}（${interpretation.dynasty}）`,
+            `${interpretation.commentator}（${interpretation.dynasty}）${interpretation.tendency ? ` ${interpretation.tendency}` : ""}`,
             [rangeSection, interpSection]
           );
         }
@@ -962,7 +1190,7 @@
                 }
               } else if (item.kind === "interpretation") {
                 state.highlightedRange = { start: item.data.start_sentence_id, end: item.data.end_sentence_id };
-                state.selectedInterpretationIdx = item.index;
+                state.selectedInterpretationIdx = item.data._idx;
                 renderTextFlow();
                 renderInterpretationList();
                 scrollToSentence(item.data.start_sentence_id);
@@ -1019,14 +1247,13 @@
             });
           });
 
-          interps.forEach((item, idx) => {
-            const source = `${item.commentator}${item.dynasty}${item.content}`;
+          interps.forEach((item) => {
+            const source = `${item.commentator}${item.dynasty}${item.tendency || ""}${item.content}`;
             if (source.includes(query)) {
               results.push({
                 kind: "interpretation",
                 type: "阐释",
                 data: item,
-                index: idx,
                 summary: `句段 ${item.start_sentence_id}-${item.end_sentence_id}｜${item.commentator}：${snippet(
                   item.content,
                   66
@@ -1041,6 +1268,7 @@
         function renderAll() {
           renderTextList();
           renderSummary();
+          renderInterpretationFilters();
           renderTextFlow();
           renderInterpretationList();
         }
