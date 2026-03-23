@@ -73,6 +73,21 @@ def group_token(raw: object) -> str:
     return text
 
 
+def split_highlight_terms(raw: object) -> list[str]:
+    text = normalize_text(raw)
+    if not text:
+        return []
+    terms: list[str] = []
+    seen: set[str] = set()
+    for part in re.split(r"[\n\r,，、;；/|]+", text):
+        term = part.strip()
+        if not term or term in seen:
+            continue
+        seen.add(term)
+        terms.append(term)
+    return terms
+
+
 def load_sentence_map() -> tuple[dict[tuple[int, int], dict[str, object]], dict[int, str]]:
     wb = openpyxl.load_workbook(TEXT_SOURCE, data_only=True)
     ws = wb["small_sentences"]
@@ -123,6 +138,7 @@ def load_relations_and_refs() -> tuple[list[dict[str, object]], list[dict[str, o
         e_to_author = pick_col(h_e, ["to_author", "toauthor", "评价者"], 7)
         e_eval_text = pick_col(h_e, ["eval_text", "evaltext", "评价语"], 8)
         e_stance = pick_col(h_e, ["stance", "态度"], 9)
+        e_highlight = pick_col(h_e, ["highlight", "highlights", "原文高亮", "高亮"], 10)
 
         relations: list[dict[str, object]] = []
         for row in range(2, ws_e.max_row + 1):
@@ -133,6 +149,7 @@ def load_relations_and_refs() -> tuple[list[dict[str, object]], list[dict[str, o
             to_author = normalize_text(cell(ws_e, row, e_to_author))
             eval_text = normalize_text(cell(ws_e, row, e_eval_text))
             stance = normalize_text(cell(ws_e, row, e_stance)).upper()
+            highlight = normalize_text(cell(ws_e, row, e_highlight))
             group_id = normalize_text(cell(ws_e, row, e_event))
 
             if text_id is None or sentence_id is None:
@@ -155,6 +172,7 @@ def load_relations_and_refs() -> tuple[list[dict[str, object]], list[dict[str, o
                     "to_author": to_author,
                     "eval_text": eval_text,
                     "stance": stance,
+                    "highlight": highlight,
                 }
             )
 
@@ -241,6 +259,7 @@ def load_relations_and_refs() -> tuple[list[dict[str, object]], list[dict[str, o
                     "to_author": to_author,
                     "eval_text": eval_text,
                     "stance": stance,
+                    "highlight": "",
                 }
             )
         else:
@@ -279,6 +298,7 @@ def main() -> None:
             "text_title": sent.get("text_title") or title_map.get(text_id) or f"篇章{text_id}",
             "sentence_id": sentence_id,
             "sentence": sent.get("sentence") or "",
+            "highlights": [],
             "relations": [],
             "references": [],
         }
@@ -291,6 +311,9 @@ def main() -> None:
         relation_group_id = normalize_text(row.get("group_id"))
         if relation_group_id:
             group["group_id"] = relation_group_id
+        for term in split_highlight_terms(row.get("highlight")):
+            if term not in group["highlights"]:
+                group["highlights"].append(term)
         group["relations"].append(
             {
                 "from_author": normalize_text(row.get("from_author")),
@@ -298,6 +321,7 @@ def main() -> None:
                 "to_author": normalize_text(row.get("to_author")),
                 "eval_text": normalize_text(row.get("eval_text")),
                 "stance": normalize_text(row.get("stance")).upper(),
+                "highlight": normalize_text(row.get("highlight")),
             }
         )
 

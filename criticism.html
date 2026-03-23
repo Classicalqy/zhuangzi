@@ -162,6 +162,13 @@
         white-space: pre-wrap;
       }
 
+      .sentence-highlight {
+        background: #ffe6a8;
+        color: inherit;
+        border-radius: 3px;
+        padding: 0 1px;
+      }
+
       .groups {
         margin-top: 12px;
         display: flex;
@@ -372,6 +379,80 @@
           history.replaceState(null, "", `${url.pathname}?${url.searchParams.toString()}`);
         }
 
+        function escapeHtml(raw) {
+          return String(raw)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+        }
+
+        function normalizeHighlightTerms(terms) {
+          if (!Array.isArray(terms) || !terms.length) return [];
+          const out = [];
+          const seen = new Set();
+          terms.forEach((item) => {
+            if (typeof item !== "string") return;
+            item
+              .split(/[\n\r,，、;；/|]+/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .forEach((term) => {
+                if (!seen.has(term)) {
+                  seen.add(term);
+                  out.push(term);
+                }
+              });
+          });
+          return out;
+        }
+
+        function renderSentenceWithHighlights(sentence, terms) {
+          const text = typeof sentence === "string" ? sentence : "";
+          if (!text) return "";
+          const normalizedTerms = normalizeHighlightTerms(terms).sort((a, b) => b.length - a.length);
+          if (!normalizedTerms.length) return escapeHtml(text);
+
+          const ranges = [];
+          normalizedTerms.forEach((term) => {
+            let from = 0;
+            while (from < text.length) {
+              const idx = text.indexOf(term, from);
+              if (idx < 0) break;
+              ranges.push([idx, idx + term.length]);
+              from = idx + term.length;
+            }
+          });
+
+          if (!ranges.length) return escapeHtml(text);
+          ranges.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+          const merged = [];
+          ranges.forEach(([start, end]) => {
+            const prev = merged[merged.length - 1];
+            if (!prev || start > prev[1]) {
+              merged.push([start, end]);
+            } else if (end > prev[1]) {
+              prev[1] = end;
+            }
+          });
+
+          let cursor = 0;
+          let html = "";
+          merged.forEach(([start, end]) => {
+            if (start > cursor) {
+              html += escapeHtml(text.slice(cursor, start));
+            }
+            html += `<mark class="sentence-highlight">${escapeHtml(text.slice(start, end))}</mark>`;
+            cursor = end;
+          });
+          if (cursor < text.length) {
+            html += escapeHtml(text.slice(cursor));
+          }
+          return html;
+        }
+
         function dedupeGraph(relations) {
           const sourceMap = new Map();
           const targetMap = new Map();
@@ -573,10 +654,19 @@
               sentenceMap.set(key, {
                 sentence_id: group.sentence_id,
                 sentence: group.sentence,
+                highlights: [],
                 groups: [],
               });
             }
-            sentenceMap.get(key).groups.push(group);
+            const bucket = sentenceMap.get(key);
+            bucket.groups.push(group);
+            (group.highlights || []).forEach((term) => {
+              if (typeof term !== "string") return;
+              const clean = term.trim();
+              if (clean && !bucket.highlights.includes(clean)) {
+                bucket.highlights.push(clean);
+              }
+            });
           });
 
           Array.from(sentenceMap.values())
@@ -591,7 +681,8 @@
 
               const sentenceEl = document.createElement("div");
               sentenceEl.className = "sentence-text";
-              sentenceEl.textContent = sentenceBlock.sentence || "（未找到原句）";
+              const sentenceText = sentenceBlock.sentence || "（未找到原句）";
+              sentenceEl.innerHTML = renderSentenceWithHighlights(sentenceText, sentenceBlock.highlights || []);
 
               const groupsEl = document.createElement("div");
               groupsEl.className = "groups";
