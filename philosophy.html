@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>哲学词典</title>
+    <style>
+      :root {
+        --bg: #f2eddc;
+        --ink: #2a2318;
+        --muted: #6e5e48;
+        --line: #d4c7ae;
+        --panel: #fffaf0;
+        --accent: #7e5a2b;
+        --chip: #f2dfbd;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 0% 0%, #fff7e7 0%, transparent 45%),
+          radial-gradient(circle at 100% 100%, #e6d7bc 0%, transparent 52%),
+          var(--bg);
+        font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif;
+      }
+
+      .layout {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 290px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        padding: 16px 14px;
+        border-right: 1px solid var(--line);
+        background: linear-gradient(180deg, #f9f1e2 0%, #efe2cc 100%);
+        overflow: auto;
+      }
+
+      .sidebar h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .sidebar p {
+        margin: 10px 0 14px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .nav-link {
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 13px;
+      }
+
+      .nav-link:hover {
+        text-decoration: underline;
+      }
+
+      .text-list {
+        margin-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .text-btn {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        text-align: left;
+        font-size: 15px;
+        color: var(--ink);
+        background: rgba(255, 250, 239, 0.86);
+        cursor: pointer;
+      }
+
+      .text-btn:hover {
+        border-color: var(--accent);
+      }
+
+      .text-btn.active {
+        border-color: var(--accent);
+        background: #f5e6cb;
+        font-weight: 700;
+      }
+
+      .main {
+        padding: 18px 22px 28px;
+        overflow: auto;
+      }
+
+      .head h2 {
+        margin: 0;
+        font-size: 30px;
+      }
+
+      .summary {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .toolbar {
+        margin-top: 12px;
+      }
+
+      .search {
+        width: min(440px, 100%);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 9px 11px;
+        font-size: 14px;
+        background: #fffef9;
+        color: var(--ink);
+      }
+
+      .concept-list {
+        margin-top: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .concept-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+        padding: 12px;
+      }
+
+      .concept-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .concept-title {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .chip {
+        flex: 0 0 auto;
+        border: 1px solid #ccb48c;
+        border-radius: 999px;
+        padding: 3px 9px;
+        background: var(--chip);
+        font-size: 12px;
+        color: #5f471f;
+      }
+
+      .scope {
+        margin-top: 10px;
+        line-height: 1.85;
+        white-space: pre-wrap;
+      }
+
+      .notes {
+        margin-top: 12px;
+      }
+
+      .notes-title {
+        margin: 0;
+        font-size: 15px;
+        color: var(--muted);
+      }
+
+      .note-list {
+        margin: 8px 0 0;
+        padding-left: 20px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .note-item {
+        line-height: 1.75;
+        white-space: pre-wrap;
+      }
+
+      .empty {
+        color: var(--muted);
+        margin-top: 10px;
+      }
+
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          border-right: none;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .text-list {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .text-list {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <h1>哲学词典</h1>
+        <p>按篇章查看概念、内涵外延和注家条目。可在右侧输入关键词筛选词条。</p>
+        <div class="nav-links">
+          <a class="nav-link" href="index.html">返回首页</a>
+          <a class="nav-link" href="criticism.html">后人对古人的评价</a>
+        </div>
+        <div id="textList" class="text-list"></div>
+      </aside>
+
+      <main class="main">
+        <section class="head">
+          <h2 id="title"></h2>
+          <div id="summary" class="summary"></div>
+          <div class="toolbar">
+            <input id="searchInput" class="search" type="search" placeholder="检索概念、内涵外延、注释内容" />
+          </div>
+        </section>
+        <div id="conceptList" class="concept-list"></div>
+      </main>
+    </div>
+
+    <script src="philosophy_data.js"></script>
+    <script>
+      (function () {
+        const data = window.PHILOSOPHY_DATA;
+        if (!data || !Array.isArray(data.texts) || data.texts.length === 0) {
+          document.body.innerHTML = '<p style="padding:20px;">词典数据未加载成功，请先运行 generate_philosophy_data.py。</p>';
+          return;
+        }
+
+        const textListEl = document.getElementById("textList");
+        const titleEl = document.getElementById("title");
+        const summaryEl = document.getElementById("summary");
+        const conceptListEl = document.getElementById("conceptList");
+        const searchInputEl = document.getElementById("searchInput");
+
+        const textById = new Map(data.texts.map((item) => [item.text_id, item]));
+        const state = {
+          currentTextId: data.texts[0].text_id,
+          keyword: "",
+        };
+
+        function currentText() {
+          return textById.get(state.currentTextId);
+        }
+
+        function queryTextId() {
+          const raw = new URLSearchParams(window.location.search).get("text_id");
+          const id = Number.parseInt(raw || "", 10);
+          if (Number.isNaN(id)) return null;
+          return textById.has(id) ? id : null;
+        }
+
+        function syncQueryTextId(textId) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("text_id", String(textId));
+          history.replaceState(null, "", `${url.pathname}?${url.searchParams.toString()}`);
+        }
+
+        function escapeHtml(raw) {
+          return String(raw)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+        }
+
+        function filteredConcepts(text) {
+          const concepts = Array.isArray(text.concepts) ? text.concepts : [];
+          const keyword = state.keyword.trim();
+          if (!keyword) return concepts;
+
+          return concepts.filter((item) => {
+            const fields = [item.concept || "", item.scope || "", ...(item.notes || [])];
+            return fields.some((value) => String(value).includes(keyword));
+          });
+        }
+
+        function renderTextList() {
+          textListEl.innerHTML = "";
+          data.texts.forEach((text) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "text-btn" + (text.text_id === state.currentTextId ? " active" : "");
+            btn.textContent = text.text_title;
+            btn.addEventListener("click", () => {
+              state.currentTextId = text.text_id;
+              syncQueryTextId(text.text_id);
+              renderAll();
+            });
+            textListEl.appendChild(btn);
+          });
+        }
+
+        function renderHeader() {
+          const text = currentText();
+          const filtered = filteredConcepts(text);
+          titleEl.textContent = `${text.text_title}｜哲学词典`;
+          summaryEl.textContent = `词条 ${text.concept_count} 条；注释 ${text.note_count} 条。当前筛选命中 ${filtered.length} 条。`;
+        }
+
+        function renderConcepts() {
+          const text = currentText();
+          const list = filteredConcepts(text);
+          conceptListEl.innerHTML = "";
+
+          if (!list.length) {
+            const empty = document.createElement("p");
+            empty.className = "empty";
+            empty.textContent = "当前筛选无匹配词条。";
+            conceptListEl.appendChild(empty);
+            return;
+          }
+
+          list.forEach((item) => {
+            const notes = Array.isArray(item.notes) ? item.notes : [];
+            const card = document.createElement("article");
+            card.className = "concept-card";
+
+            const notesHtml = notes.length
+              ? `<ol class="note-list">${notes
+                  .map((note) => `<li class="note-item">${escapeHtml(note)}</li>`)
+                  .join("")}</ol>`
+              : '<p class="empty">暂无注释条目。</p>';
+
+            card.innerHTML = `
+              <div class="concept-head">
+                <h3 class="concept-title">${escapeHtml(item.concept || "（未命名概念）")}</h3>
+                <span class="chip">${notes.length} 注 · ${escapeHtml(item.source_sheet || "")}</span>
+              </div>
+              <div class="scope">${escapeHtml(item.scope || "（暂无内涵外延）")}</div>
+              <section class="notes">
+                <h4 class="notes-title">注释</h4>
+                ${notesHtml}
+              </section>
+            `;
+
+            conceptListEl.appendChild(card);
+          });
+        }
+
+        function renderAll() {
+          renderTextList();
+          renderHeader();
+          renderConcepts();
+        }
+
+        searchInputEl.addEventListener("input", () => {
+          state.keyword = searchInputEl.value || "";
+          renderHeader();
+          renderConcepts();
+        });
+
+        state.currentTextId = queryTextId() ?? state.currentTextId;
+        syncQueryTextId(state.currentTextId);
+        renderAll();
+      })();
+    </script>
+  </body>
+</html>
