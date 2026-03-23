@@ -381,6 +381,20 @@
         white-space: pre-wrap;
       }
 
+      .collapse-wrap {
+        margin-top: 8px;
+      }
+
+      .collapse-toggle {
+        cursor: pointer;
+        color: var(--accent);
+        font-size: 13px;
+      }
+
+      .collapse-toggle:hover {
+        text-decoration: underline;
+      }
+
       .empty {
         color: var(--muted);
         margin: 6px 0 0;
@@ -537,6 +551,7 @@
           selectedInterpretationIdx: null,
           sentenceNodeMap: new Map(),
         };
+        const COLLAPSE_SPAN_THRESHOLD = 10;
 
         function currentText() {
           return textById.get(state.currentTextId);
@@ -551,6 +566,39 @@
             .filter((item) => item.sentence_id >= startId && item.sentence_id <= endId)
             .map((item) => item.sentence)
             .join("");
+        }
+
+        function shouldCollapseRange(startId, endId) {
+          return Math.abs(endId - startId) >= COLLAPSE_SPAN_THRESHOLD;
+        }
+
+        function buildRangeTextNode(text, startId, endId) {
+          const rangeText = sentenceRangeText(text, startId, endId);
+          const spanCount = Math.abs(endId - startId) + 1;
+
+          if (!shouldCollapseRange(startId, endId)) {
+            const p = document.createElement("p");
+            p.className = "note-content";
+            p.style.marginTop = "8px";
+            p.textContent = rangeText;
+            return p;
+          }
+
+          const details = document.createElement("details");
+          details.className = "collapse-wrap";
+
+          const summary = document.createElement("summary");
+          summary.className = "collapse-toggle";
+          summary.textContent = `展开原文（句段 ${startId}-${endId}，共 ${spanCount} 句）`;
+
+          const p = document.createElement("p");
+          p.className = "note-content";
+          p.style.marginTop = "8px";
+          p.textContent = rangeText;
+
+          details.appendChild(summary);
+          details.appendChild(p);
+          return details;
         }
 
         function snippet(text, max = 64) {
@@ -776,15 +824,29 @@
             const noteEl = document.createElement("article");
             noteEl.className = "note";
 
-            const contentEl = document.createElement("p");
-            contentEl.className = "note-content";
-            contentEl.textContent = `注者：${item.commentator}（${item.dynasty}）\n原文：${sentenceRangeText(
-              text,
-              item.start_sentence_id,
-              item.end_sentence_id
-            )}\n阐释：${item.content}`;
+            const commentatorEl = document.createElement("div");
+            commentatorEl.className = "note-meta";
+            commentatorEl.textContent = `注者：${item.commentator}（${item.dynasty}）`;
 
-            noteEl.appendChild(contentEl);
+            const sourceLabelEl = document.createElement("div");
+            sourceLabelEl.className = "note-meta";
+            sourceLabelEl.textContent = "原文：";
+
+            const sourceNode = buildRangeTextNode(text, item.start_sentence_id, item.end_sentence_id);
+
+            const interpLabelEl = document.createElement("div");
+            interpLabelEl.className = "note-meta";
+            interpLabelEl.textContent = "阐释：";
+
+            const interpContentEl = document.createElement("p");
+            interpContentEl.className = "note-content";
+            interpContentEl.textContent = item.content;
+
+            noteEl.appendChild(commentatorEl);
+            noteEl.appendChild(sourceLabelEl);
+            noteEl.appendChild(sourceNode);
+            noteEl.appendChild(interpLabelEl);
+            noteEl.appendChild(interpContentEl);
             listEl.appendChild(noteEl);
           });
 
@@ -820,11 +882,6 @@
         }
 
         function openInterpretationModal(text, interpretation) {
-          const rangeText = sentenceRangeText(
-            text,
-            interpretation.start_sentence_id,
-            interpretation.end_sentence_id
-          );
           const pseudoNote = {
             commentator: interpretation.commentator,
             dynasty: interpretation.dynasty,
@@ -835,12 +892,10 @@
           rangeSection.className = "note-section";
           const rangeTitle = document.createElement("h4");
           rangeTitle.textContent = "对应原文句段";
-          const rangeContent = document.createElement("p");
-          rangeContent.className = "note-content";
-          rangeContent.style.marginTop = "8px";
-          rangeContent.textContent = rangeText;
           rangeSection.appendChild(rangeTitle);
-          rangeSection.appendChild(rangeContent);
+          rangeSection.appendChild(
+            buildRangeTextNode(text, interpretation.start_sentence_id, interpretation.end_sentence_id)
+          );
 
           const interpSection = renderNoteSection("阐释内容", [pseudoNote], (item) => item.content);
 
