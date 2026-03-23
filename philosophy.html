@@ -21,6 +21,8 @@
 
       body {
         margin: 0;
+        height: 100vh;
+        overflow: hidden;
         color: var(--ink);
         background:
           radial-gradient(circle at 0% 0%, #fff7e7 0%, transparent 45%),
@@ -30,7 +32,7 @@
       }
 
       .layout {
-        min-height: 100vh;
+        height: 100vh;
         display: grid;
         grid-template-columns: 320px minmax(0, 1fr);
         transition: grid-template-columns 0.22s ease;
@@ -41,6 +43,7 @@
       }
 
       .sidebar {
+        height: 100vh;
         padding: 16px 14px;
         border-right: 1px solid var(--line);
         background: linear-gradient(180deg, #f9f1e2 0%, #efe2cc 100%);
@@ -178,6 +181,7 @@
       }
 
       .main {
+        height: 100vh;
         padding: 18px 22px 28px;
         overflow: auto;
       }
