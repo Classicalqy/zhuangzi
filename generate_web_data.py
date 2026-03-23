@@ -123,6 +123,9 @@ def main() -> None:
     sentence_note_keys: set[tuple[int, int]] = set()
 
     annotations_by_key: dict[str, list[dict]] = {}
+    # Merge split annotation rows from the same commentator for the same sentence.
+    annotation_group_map: dict[tuple[int, int, str, str], dict] = {}
+    annotation_order_map: dict[str, list[tuple[int, int, str, str]]] = {}
     interpretations: list[dict] = []
     interpretation_seen_keys: set[tuple[int, int, int, str, str, str]] = set()
     interpretation_dedup_count = 0
@@ -154,14 +157,24 @@ def main() -> None:
 
         key = f"{tid}-{sid}"
         sentence_note_keys.add((tid, sid))
-        annotations_by_key.setdefault(key, []).append(
-            {
+        commentator_key = commentator_text or "未署名"
+        dynasty_key = dynasty_text or "未详"
+        merge_key = (tid, sid, commentator_key, dynasty_key)
+
+        if merge_key not in annotation_group_map:
+            annotation_group_map[merge_key] = {
                 "annotation_id": to_int(annotation_id),
-                "commentator": commentator_text or "未署名",
-                "dynasty": dynasty_text or "未详",
-                "content": annotation_text,
+                "commentator": commentator_key,
+                "dynasty": dynasty_key,
+                "_content_list": [annotation_text],
+                "_seen_content": {annotation_text},
             }
-        )
+            annotation_order_map.setdefault(key, []).append(merge_key)
+        else:
+            group = annotation_group_map[merge_key]
+            if annotation_text not in group["_seen_content"]:
+                group["_content_list"].append(annotation_text)
+                group["_seen_content"].add(annotation_text)
 
     for row in ws_interp.iter_rows(min_row=2, values_only=True):
         interpretation_id = cell(row, interp_id_col)
@@ -235,6 +248,21 @@ def main() -> None:
                 "has_note": (tid, sid) in sentence_note_keys,
             }
         )
+
+    # Finalize merged annotations, preserving original row order.
+    for key, merge_keys in annotation_order_map.items():
+        merged_list: list[dict] = []
+        for mkey in merge_keys:
+            item = annotation_group_map[mkey]
+            merged_list.append(
+                {
+                    "annotation_id": item["annotation_id"],
+                    "commentator": item["commentator"],
+                    "dynasty": item["dynasty"],
+                    "content": "\n".join(item["_content_list"]),
+                }
+            )
+        annotations_by_key[key] = merged_list
 
     text_list = []
     for _, text_data in sorted(
