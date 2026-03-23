@@ -228,7 +228,7 @@
         <p>按篇章查看概念、内涵外延和注家条目。可在右侧输入关键词筛选词条。</p>
         <div class="nav-links">
           <a class="nav-link" href="index.html">返回首页</a>
-          <a class="nav-link" href="criticism.html">后人对古人的评价</a>
+          <a class="nav-link" href="criticism.html">后人对前人的评价</a>
         </div>
         <div id="textList" class="text-list"></div>
       </aside>
@@ -353,7 +353,7 @@
             card.innerHTML = `
               <div class="concept-head">
                 <h3 class="concept-title">${escapeHtml(item.concept || "（未命名概念）")}</h3>
-                <span class="chip">${notes.length} 注 · ${escapeHtml(item.source_sheet || "")}</span>
+                <span class="chip">${notes.length} 注</span>
               </div>
               <div class="scope">${escapeHtml(item.scope || "（暂无内涵外延）")}</div>
               <section class="notes">

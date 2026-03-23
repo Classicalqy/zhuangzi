@@ -459,11 +459,6 @@
         margin-bottom: 6px;
       }
 
-      .note-id {
-        display: inline-block;
-        margin-right: 8px;
-      }
-
       .note-content {
         margin: 0;
         line-height: 1.7;
@@ -972,8 +967,7 @@
 
             const metaEl = document.createElement("div");
             metaEl.className = "note-meta";
-            const idText = item.annotation_id != null ? String(item.annotation_id) : "-";
-            metaEl.innerHTML = `<span class="note-id">#${idText}</span>${item.commentator}（${item.dynasty}）`;
+            metaEl.textContent = `${item.commentator}（${item.dynasty}）`;
 
             const contentEl = document.createElement("p");
             contentEl.className = "note-content";

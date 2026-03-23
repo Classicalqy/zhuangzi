@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>后人对古人的评价</title>
+    <title>后人对前人的评价</title>
     <style>
       :root {
         --bg: #f3ecdf;
@@ -183,11 +183,6 @@
         padding: 12px;
       }
 
-      .group-title {
-        margin: 0;
-        font-size: 16px;
-      }
-
       .group-grid {
         margin-top: 10px;
         display: grid;
@@ -322,7 +317,7 @@
   <body>
     <div class="layout">
       <aside class="sidebar">
-        <h1>后人对古人的评价</h1>
+        <h1>后人对前人的评价</h1>
         <p>按分句查看注疏评价关系。绿色表示支持，红色表示否定；无态度记录作为“参考”展示。</p>
         <a class="home-link" href="index.html">返回首页</a>
         <a class="home-link" href="philosophy.html">哲学词典</a>
@@ -632,8 +627,8 @@
 
         function renderHeader() {
           const text = currentText();
-          titleEl.textContent = `${text.text_title}｜后人对古人的评价`;
-          summaryEl.textContent = `共 ${text.group_count} 个 group；评价箭头关系 ${text.relation_count} 条；参考条目 ${text.reference_count} 条。`;
+          titleEl.textContent = `${text.text_title}｜后人对前人的评价`;
+          summaryEl.textContent = `共 ${text.group_count} 组评价单元；评价关系 ${text.relation_count} 条；参考条目 ${text.reference_count} 条。`;
         }
 
         function renderSentenceBlocks() {
@@ -688,21 +683,15 @@
               const groupsEl = document.createElement("div");
               groupsEl.className = "groups";
 
-              sentenceBlock.groups.forEach((group, idx) => {
+              sentenceBlock.groups.forEach((group) => {
                 const card = document.createElement("article");
                 card.className = "group-card";
-
-                const title = document.createElement("h4");
-                title.className = "group-title";
-                const label = group.group_id || group.group_token || `组${idx + 1}`;
-                title.textContent = `Group ${label}`;
 
                 const grid = document.createElement("div");
                 grid.className = "group-grid";
                 grid.appendChild(renderGraphPanel(group));
                 grid.appendChild(renderRefPanel(group));
 
-                card.appendChild(title);
                 card.appendChild(grid);
                 groupsEl.appendChild(card);
               });

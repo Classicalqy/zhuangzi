@@ -200,17 +200,15 @@
       <section class="hero">
         <span class="eyebrow">庄子文本工程</span>
         <h1>庄子注疏数字阅读</h1>
-        <p class="sub">基于校对后的结构化数据，提供分句浏览、字义注释查看、跨句阐释定位与检索。可从下方篇章卡片直接进入对应阅读页。</p>
 
         <div class="cta-row">
           <a class="cta primary" href="reader.html">进入总阅读器</a>
-          <a class="cta" href="reader.html?text_id=1">从人间世开始</a>
-          <a class="cta" href="criticism.html">后人对古人的评价</a>
+          <a class="cta" href="reader.html?text_id=2">从逍遥游开始</a>
+          <a class="cta" href="criticism.html">后人对前人的评价</a>
           <a class="cta" href="philosophy.html">哲学词典</a>
         </div>
 
         <div class="stats" id="stats"></div>
-        <div class="footer" id="generatedAt"></div>
         <div class="error" id="error" style="display: none"></div>
       </section>
 
@@ -226,7 +224,6 @@
       (function () {
         const statsEl = document.getElementById("stats");
         const gridEl = document.getElementById("textGrid");
-        const generatedAtEl = document.getElementById("generatedAt");
         const errorEl = document.getElementById("error");
 
         function renderError(message) {
@@ -255,19 +252,13 @@
           statsEl.appendChild(node);
         });
 
-        if (meta.generated_at) {
-          const dt = new Date(meta.generated_at);
-          const display = Number.isNaN(dt.getTime()) ? meta.generated_at : dt.toLocaleString("zh-CN", { hour12: false });
-          generatedAtEl.textContent = `数据生成时间：${display}`;
-        }
-
         data.texts.forEach((text) => {
           const sentenceCount = Array.isArray(text.sentences) ? text.sentences.length : 0;
           const card = document.createElement("article");
           card.className = "text-card";
           card.innerHTML = `
             <h3>${text.text_title}</h3>
-            <div class="meta">篇章 ID：${text.text_id} ｜ 分句 ${sentenceCount} 条</div>
+            <div class="meta">分句 ${sentenceCount} 条</div>
             <a href="reader.html?text_id=${encodeURIComponent(text.text_id)}">进入本篇阅读</a>
           `;
           gridEl.appendChild(card);
