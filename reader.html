@@ -1247,6 +1247,7 @@
           dialogSubEl.textContent = subtitle;
           dialogBodyEl.innerHTML = "";
           sections.forEach((section) => dialogBodyEl.appendChild(section));
+          dialogBodyEl.scrollTop = 0;
           modalEl.classList.add("open");
         }
 
@@ -1297,6 +1298,7 @@
 
         function closeModal() {
           modalEl.classList.remove("open");
+          dialogBodyEl.scrollTop = 0;
         }
 
         function scrollToSentence(sentenceId) {
