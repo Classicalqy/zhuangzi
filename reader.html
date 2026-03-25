@@ -678,7 +678,7 @@
           <div id="summary" class="summary"></div>
 
           <div class="search-box">
-            <input id="searchInput" type="text" placeholder="搜索原文/注释/阐释（当前篇章）" />
+            <input id="searchInput" type="text" placeholder="搜索原文/注释/阐释（全部篇章）" />
             <button id="searchBtn" type="button">搜索</button>
             <button id="clearSearchBtn" type="button">清空</button>
           </div>
@@ -1343,9 +1343,36 @@
           } catch (_) {}
         }
 
+        function runInTextContext(textId, callback, forceRender = false) {
+          const targetId = Number(textId);
+          if (!Number.isInteger(targetId) || !textById.has(targetId)) {
+            callback(currentText());
+            return;
+          }
+
+          const switched = state.currentTextId !== targetId;
+          if (switched) {
+            state.currentTextId = targetId;
+            state.highlightedRange = null;
+            state.selectedInterpretationIdx = null;
+            syncQueryTextId(targetId);
+            closeModal();
+          }
+
+          if (switched || forceRender) {
+            renderAll();
+            requestAnimationFrame(() => {
+              callback(textById.get(targetId));
+            });
+            return;
+          }
+
+          callback(textById.get(targetId));
+        }
+
         function renderSearchResults(results, query) {
           searchResultsEl.innerHTML = "";
-          searchMetaEl.textContent = `关键词“${query}”命中 ${results.length} 条（当前篇章）。`;
+          searchMetaEl.textContent = `关键词“${query}”命中 ${results.length} 条（全部篇章）。`;
 
           if (!results.length) {
             const empty = document.createElement("p");
@@ -1371,22 +1398,42 @@
             btn.appendChild(text);
 
             btn.addEventListener("click", () => {
-              if (item.kind === "sentence") {
-                scrollToSentence(item.sentenceId);
-              } else if (item.kind === "annotation") {
-                const sentence = currentText().sentences.find((s) => s.sentence_id === item.sentenceId);
-                if (sentence) {
-                  scrollToSentence(item.sentenceId);
-                  openAnnotationModal(currentText(), sentence);
-                }
-              } else if (item.kind === "interpretation") {
-                state.highlightedRange = { start: item.data.start_sentence_id, end: item.data.end_sentence_id };
-                state.selectedInterpretationIdx = item.data._idx;
-                renderTextFlow();
-                renderInterpretationList();
-                scrollToSentence(item.data.start_sentence_id);
-                openInterpretationModal(currentText(), item.data);
+              const needsFullInterpretationFilter =
+                item.kind === "interpretation" && state.interpretationTendencyFilter !== "ALL";
+              if (needsFullInterpretationFilter) {
+                state.interpretationTendencyFilter = "ALL";
               }
+
+              runInTextContext(
+                item.textId,
+                (targetText) => {
+                  if (!targetText) return;
+
+                  if (item.kind === "sentence") {
+                    scrollToSentence(item.sentenceId);
+                    return;
+                  }
+
+                  if (item.kind === "annotation") {
+                    const sentence = targetText.sentences.find((s) => s.sentence_id === item.sentenceId);
+                    if (sentence) {
+                      scrollToSentence(item.sentenceId);
+                      openAnnotationModal(targetText, sentence);
+                    }
+                    return;
+                  }
+
+                  if (item.kind === "interpretation") {
+                    state.highlightedRange = { start: item.data.start_sentence_id, end: item.data.end_sentence_id };
+                    state.selectedInterpretationIdx = item.data._idx;
+                    renderTextFlow();
+                    renderInterpretationList();
+                    scrollToSentence(item.data.start_sentence_id);
+                    openInterpretationModal(targetText, item.data);
+                  }
+                },
+                needsFullInterpretationFilter
+              );
             });
 
             searchResultsEl.appendChild(btn);
@@ -1407,50 +1454,54 @@
             return;
           }
 
-          const text = currentText();
-          const interps = currentInterpretations();
           const results = [];
 
-          text.sentences.forEach((sentence) => {
-            if (sentence.sentence.includes(query)) {
-              results.push({
-                kind: "sentence",
-                type: "原文",
-                sentenceId: sentence.sentence_id,
-                summary: `第 ${sentence.sentence_id} 句：${snippet(sentence.sentence, 80)}`,
-              });
-            }
-          });
-
-          text.sentences.forEach((sentence) => {
-            const key = `${text.text_id}-${sentence.sentence_id}`;
-            const annos = data.annotations_by_key[key] || [];
-            annos.forEach((anno) => {
-              const source = `${anno.commentator}${anno.dynasty}${anno.content}`;
-              if (source.includes(query)) {
+          data.texts.forEach((text) => {
+            text.sentences.forEach((sentence) => {
+              if (sentence.sentence.includes(query)) {
                 results.push({
-                  kind: "annotation",
-                  type: "注释",
+                  kind: "sentence",
+                  type: "原文",
+                  textId: text.text_id,
                   sentenceId: sentence.sentence_id,
-                  summary: `第 ${sentence.sentence_id} 句｜${anno.commentator}：${snippet(anno.content, 66)}`,
+                  summary: `【${text.text_title}】第 ${sentence.sentence_id} 句：${snippet(sentence.sentence, 80)}`,
                 });
               }
             });
-          });
 
-          interps.forEach((item) => {
-            const source = `${item.commentator}${item.dynasty}${item.tendency || ""}${item.content}`;
-            if (source.includes(query)) {
-              results.push({
-                kind: "interpretation",
-                type: "阐释",
-                data: item,
-                summary: `句段 ${item.start_sentence_id}-${item.end_sentence_id}｜${item.commentator}：${snippet(
-                  item.content,
-                  66
-                )}`,
+            text.sentences.forEach((sentence) => {
+              const key = `${text.text_id}-${sentence.sentence_id}`;
+              const annos = data.annotations_by_key[key] || [];
+              annos.forEach((anno) => {
+                const source = `${anno.commentator}${anno.dynasty}${anno.content}`;
+                if (source.includes(query)) {
+                  results.push({
+                    kind: "annotation",
+                    type: "注释",
+                    textId: text.text_id,
+                    sentenceId: sentence.sentence_id,
+                    summary: `【${text.text_title}】第 ${sentence.sentence_id} 句｜${anno.commentator}：${snippet(anno.content, 66)}`,
+                  });
+                }
               });
-            }
+            });
+
+            const interps = interpretationsByText[text.text_id] || [];
+            interps.forEach((item) => {
+              const source = `${item.commentator}${item.dynasty}${item.tendency || ""}${item.content}`;
+              if (source.includes(query)) {
+                results.push({
+                  kind: "interpretation",
+                  type: "阐释",
+                  textId: text.text_id,
+                  data: item,
+                  summary: `【${text.text_title}】句段 ${item.start_sentence_id}-${item.end_sentence_id}｜${item.commentator}：${snippet(
+                    item.content,
+                    66
+                  )}`,
+                });
+              }
+            });
           });
 
           renderSearchResults(results, query);

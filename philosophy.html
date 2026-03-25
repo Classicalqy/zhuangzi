@@ -253,6 +253,12 @@
         white-space: pre-wrap;
       }
 
+      .concept-source {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
       .notes {
         margin-top: 12px;
       }
@@ -338,7 +344,7 @@
     <div class="layout">
       <aside class="sidebar">
         <h1>哲学词典</h1>
-        <p>按篇章查看概念、内涵外延和注家条目。可在右侧输入关键词筛选词条。</p>
+        <p>按篇章查看概念、内涵外延和注家条目。输入关键词后将自动检索全部篇章。</p>
 
         <section class="sidebar-block">
           <h3 class="side-title">平台目录</h3>
@@ -367,7 +373,7 @@
           <h2 id="title"></h2>
           <div id="summary" class="summary"></div>
           <div class="toolbar">
-            <input id="searchInput" class="search" type="search" placeholder="检索概念、内涵外延、注释内容" />
+            <input id="searchInput" class="search" type="search" placeholder="全库检索概念、内涵外延、注释内容" />
           </div>
         </section>
         <div id="conceptList" class="concept-list"></div>
@@ -436,15 +442,44 @@
             .replaceAll("'", "&#39;");
         }
 
-        function filteredConcepts(text) {
-          const concepts = Array.isArray(text.concepts) ? text.concepts : [];
-          const keyword = state.keyword.trim();
-          if (!keyword) return concepts;
+        function conceptMatches(item, keyword) {
+          if (!keyword) return true;
+          const fields = [item.concept || "", item.scope || "", ...(item.notes || [])];
+          return fields.some((value) => String(value).includes(keyword));
+        }
 
-          return concepts.filter((item) => {
-            const fields = [item.concept || "", item.scope || "", ...(item.notes || [])];
-            return fields.some((value) => String(value).includes(keyword));
+        function filteredConceptsForText(text, keyword) {
+          const concepts = Array.isArray(text?.concepts) ? text.concepts : [];
+          if (!keyword) return concepts;
+          return concepts.filter((item) => conceptMatches(item, keyword));
+        }
+
+        function visibleConceptRecords() {
+          const keyword = state.keyword.trim();
+          if (!keyword) {
+            const text = currentText();
+            return filteredConceptsForText(text, "").map((item) => ({
+              text_id: text.text_id,
+              text_title: text.text_title,
+              concept: item,
+            }));
+          }
+
+          const records = [];
+          data.texts.forEach((text) => {
+            filteredConceptsForText(text, keyword).forEach((item) => {
+              records.push({
+                text_id: text.text_id,
+                text_title: text.text_title,
+                concept: item,
+              });
+            });
           });
+          return records;
+        }
+
+        function coveredTextCount(records) {
+          return new Set(records.map((item) => item.text_id)).size;
         }
 
         function renderTextList() {
@@ -464,21 +499,49 @@
         }
 
         function renderHeader() {
-          const text = currentText();
-          const filtered = filteredConcepts(text);
-          titleEl.textContent = `${text.text_title}｜哲学词典`;
-          summaryEl.textContent = `词条 ${text.concept_count} 条；注释 ${text.note_count} 条。当前筛选命中 ${filtered.length} 条。`;
+          const keyword = state.keyword.trim();
+          if (!keyword) {
+            const text = currentText();
+            const filtered = visibleConceptRecords();
+            titleEl.textContent = `${text.text_title}｜哲学词典`;
+            summaryEl.textContent = `词条 ${text.concept_count} 条；注释 ${text.note_count} 条。当前筛选命中 ${filtered.length} 条。`;
+            return;
+          }
+
+          const records = visibleConceptRecords();
+          titleEl.textContent = "哲学词典｜全库检索";
+          summaryEl.textContent = `关键词“${keyword}”命中 ${records.length} 条，覆盖 ${coveredTextCount(records)} 篇。`;
         }
 
         function renderSidebarStats() {
-          const text = currentText();
-          const filtered = filteredConcepts(text);
-          const stats = [
-            { label: "总篇章", value: data.texts.length },
-            { label: "总词条", value: data.meta?.concept_count ?? "-" },
-            { label: "当前词条", value: text.concept_count ?? "-" },
-            { label: "筛选命中", value: filtered.length },
-          ];
+          const keyword = state.keyword.trim();
+          const records = visibleConceptRecords();
+
+          const stats = keyword
+            ? [
+                { label: "总篇章", value: data.texts.length },
+                { label: "总词条", value: data.meta?.concept_count ?? "-" },
+                { label: "命中词条", value: records.length },
+                { label: "命中篇章", value: coveredTextCount(records) },
+              ]
+            : [
+                {
+                  label: "总篇章",
+                  value: data.texts.length,
+                },
+                {
+                  label: "总词条",
+                  value: data.meta?.concept_count ?? "-",
+                },
+                {
+                  label: "当前词条",
+                  value: currentText().concept_count ?? "-",
+                },
+                {
+                  label: "筛选命中",
+                  value: records.length,
+                },
+              ];
 
           sideStatsEl.innerHTML = "";
           stats.forEach((item) => {
@@ -490,19 +553,20 @@
         }
 
         function renderConcepts() {
-          const text = currentText();
-          const list = filteredConcepts(text);
+          const keyword = state.keyword.trim();
+          const records = visibleConceptRecords();
           conceptListEl.innerHTML = "";
 
-          if (!list.length) {
+          if (!records.length) {
             const empty = document.createElement("p");
             empty.className = "empty";
-            empty.textContent = "当前筛选无匹配词条。";
+            empty.textContent = keyword ? "全库检索无匹配词条。" : "当前筛选无匹配词条。";
             conceptListEl.appendChild(empty);
             return;
           }
 
-          list.forEach((item) => {
+          records.forEach((record) => {
+            const item = record.concept;
             const notes = Array.isArray(item.notes) ? item.notes : [];
             const card = document.createElement("article");
             card.className = "concept-card";
@@ -513,11 +577,16 @@
                   .join("")}</ol>`
               : '<p class="empty">暂无注释条目。</p>';
 
+            const sourceHtml = keyword
+              ? `<div class="concept-source">篇章：${escapeHtml(record.text_title)}</div>`
+              : "";
+
             card.innerHTML = `
               <div class="concept-head">
                 <h3 class="concept-title">${escapeHtml(item.concept || "（未命名概念）")}</h3>
                 <span class="chip">${notes.length} 注</span>
               </div>
+              ${sourceHtml}
               <div class="scope">${escapeHtml(item.scope || "（暂无内涵外延）")}</div>
               <section class="notes">
                 <h4 class="notes-title">注释</h4>

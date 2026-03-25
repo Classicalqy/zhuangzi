@@ -195,6 +195,75 @@
         font-size: 14px;
       }
 
+      .search-box {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 8px;
+      }
+
+      .search-box input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #fffdf8;
+        font-size: 15px;
+        color: var(--ink);
+      }
+
+      .search-box button {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        padding: 0 12px;
+        font-size: 14px;
+        color: var(--ink);
+        cursor: pointer;
+      }
+
+      .search-box button:hover {
+        border-color: var(--accent);
+      }
+
+      .search-meta {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .search-results {
+        margin-top: 8px;
+        max-height: 230px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .search-result {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        padding: 9px 10px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .search-result:hover {
+        border-color: var(--accent);
+      }
+
+      .badge {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 1px 7px;
+        margin-right: 8px;
+        font-size: 12px;
+        color: #fff;
+        background: var(--accent);
+      }
+
       .legend {
         margin-top: 12px;
         display: flex;
@@ -416,6 +485,14 @@
       }
 
       @media (max-width: 640px) {
+        .search-box {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .search-box input {
+          grid-column: 1 / -1;
+        }
+
         .text-list {
           grid-template-columns: 1fr;
         }
@@ -468,6 +545,13 @@
             <span class="legend-item n">N 否定（红）</span>
             <span class="legend-item ref">无态度：参考（不画箭头）</span>
           </div>
+          <div class="search-box">
+            <input id="searchInput" type="text" placeholder="搜索评价关系/参考条目/原文（全部篇章）" />
+            <button id="searchBtn" type="button">搜索</button>
+            <button id="clearSearchBtn" type="button">清空</button>
+          </div>
+          <div id="searchMeta" class="search-meta"></div>
+          <div id="searchResults" class="search-results"></div>
         </section>
 
         <div id="sentenceContainer"></div>
@@ -490,6 +574,11 @@
         const titleEl = document.getElementById("title");
         const summaryEl = document.getElementById("summary");
         const sentenceContainerEl = document.getElementById("sentenceContainer");
+        const searchInputEl = document.getElementById("searchInput");
+        const searchBtnEl = document.getElementById("searchBtn");
+        const clearSearchBtnEl = document.getElementById("clearSearchBtn");
+        const searchMetaEl = document.getElementById("searchMeta");
+        const searchResultsEl = document.getElementById("searchResults");
 
         const textById = new Map(data.texts.map((item) => [item.text_id, item]));
         const state = {
@@ -532,6 +621,37 @@
             .replaceAll(">", "&gt;")
             .replaceAll('"', "&quot;")
             .replaceAll("'", "&#39;");
+        }
+
+        function snippet(text, max = 70) {
+          const raw = String(text || "");
+          return raw.length > max ? raw.slice(0, max) + "..." : raw;
+        }
+
+        function clearSearchResults() {
+          searchMetaEl.textContent = "";
+          searchResultsEl.innerHTML = "";
+        }
+
+        function runInTextContext(textId, callback) {
+          const targetId = Number(textId);
+          if (!Number.isInteger(targetId) || !textById.has(targetId)) {
+            callback(currentText());
+            return;
+          }
+
+          const switched = state.currentTextId !== targetId;
+          if (switched) {
+            state.currentTextId = targetId;
+            syncQueryTextId(targetId);
+            renderAll();
+            requestAnimationFrame(() => {
+              callback(textById.get(targetId));
+            });
+            return;
+          }
+
+          callback(textById.get(targetId));
         }
 
         function normalizeHighlightTerms(terms) {
@@ -775,6 +895,124 @@
           });
         }
 
+        function scrollToSentenceBlock(sentenceId) {
+          const target = sentenceContainerEl.querySelector(`.sentence-block[data-sentence-id="${sentenceId}"]`);
+          if (!target) return;
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+
+        function renderSearchResults(results, query) {
+          searchResultsEl.innerHTML = "";
+          searchMetaEl.textContent = `关键词“${query}”命中 ${results.length} 条（全部篇章）。`;
+
+          if (!results.length) {
+            const empty = document.createElement("p");
+            empty.className = "empty";
+            empty.textContent = "没有匹配结果。";
+            searchResultsEl.appendChild(empty);
+            return;
+          }
+
+          results.slice(0, 120).forEach((item) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "search-result";
+
+            const label = document.createElement("span");
+            label.className = "badge";
+            label.textContent = item.type;
+
+            const text = document.createElement("span");
+            text.textContent = item.summary;
+
+            btn.appendChild(label);
+            btn.appendChild(text);
+
+            btn.addEventListener("click", () => {
+              runInTextContext(item.textId, () => {
+                scrollToSentenceBlock(item.sentenceId);
+              });
+            });
+
+            searchResultsEl.appendChild(btn);
+          });
+
+          if (results.length > 120) {
+            const tip = document.createElement("p");
+            tip.className = "empty";
+            tip.textContent = "结果过多，仅展示前 120 条。";
+            searchResultsEl.appendChild(tip);
+          }
+        }
+
+        function doSearch() {
+          const query = searchInputEl.value.trim();
+          if (!query) {
+            clearSearchResults();
+            return;
+          }
+
+          const results = [];
+          const seen = new Set();
+
+          data.texts.forEach((text) => {
+            const groups = Array.isArray(text.groups) ? text.groups : [];
+            const sentenceSeen = new Set();
+
+            groups.forEach((group) => {
+              const sentenceId = Number(group.sentence_id);
+              if (!Number.isInteger(sentenceId)) return;
+
+              const sentenceText = String(group.sentence || "");
+              const sentenceKey = `${text.text_id}|S|${sentenceId}`;
+              if (!sentenceSeen.has(sentenceId) && sentenceText.includes(query)) {
+                sentenceSeen.add(sentenceId);
+                seen.add(sentenceKey);
+                results.push({
+                  kind: "sentence",
+                  type: "原文",
+                  textId: text.text_id,
+                  sentenceId,
+                  summary: `【${text.text_title}】第 ${sentenceId} 句：${snippet(sentenceText, 80)}`,
+                });
+              }
+
+              (group.relations || []).forEach((rel, idx) => {
+                const source = `${rel.from_author || ""}${rel.from_text || ""}${rel.to_author || ""}${rel.eval_text || ""}${rel.stance || ""}`;
+                if (!source.includes(query)) return;
+                const key = `${text.text_id}|R|${sentenceId}|${idx}|${rel.from_author || ""}|${rel.to_author || ""}|${rel.eval_text || ""}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                const stanceLabel = rel.stance === "Y" ? "支持" : rel.stance === "N" ? "否定" : "关系";
+                results.push({
+                  kind: "relation",
+                  type: "评价",
+                  textId: text.text_id,
+                  sentenceId,
+                  summary: `【${text.text_title}】第 ${sentenceId} 句｜${rel.from_author || "未署名"}→${rel.to_author || "未署名"}（${stanceLabel}）：${snippet(rel.eval_text || rel.from_text || "（空）", 66)}`,
+                });
+              });
+
+              (group.references || []).forEach((ref, idx) => {
+                const source = `${ref.ref_author || ""}${ref.ref_text || ""}`;
+                if (!source.includes(query)) return;
+                const key = `${text.text_id}|F|${sentenceId}|${idx}|${ref.ref_author || ""}|${ref.ref_text || ""}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                results.push({
+                  kind: "reference",
+                  type: "参考",
+                  textId: text.text_id,
+                  sentenceId,
+                  summary: `【${text.text_title}】第 ${sentenceId} 句｜${ref.ref_author || "未署名"}：${snippet(ref.ref_text || "（空）", 66)}`,
+                });
+              });
+            });
+          });
+
+          renderSearchResults(results, query);
+        }
+
         function renderHeader() {
           const text = currentText();
           titleEl.textContent = `${text.text_title}｜后人对前人的评价`;
@@ -838,6 +1076,7 @@
             .forEach((sentenceBlock) => {
               const block = document.createElement("section");
               block.className = "sentence-block";
+              block.dataset.sentenceId = String(sentenceBlock.sentence_id);
 
               const head = document.createElement("h3");
               head.className = "sentence-head";
@@ -881,6 +1120,15 @@
 
         sidebarToggleEl.addEventListener("click", () => {
           setSidebarCollapsed(!state.sidebarCollapsed);
+        });
+
+        searchBtnEl.addEventListener("click", doSearch);
+        clearSearchBtnEl.addEventListener("click", () => {
+          searchInputEl.value = "";
+          clearSearchResults();
+        });
+        searchInputEl.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") doSearch();
         });
 
         try {
