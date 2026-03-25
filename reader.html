@@ -30,6 +30,10 @@
         font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif;
       }
 
+      body.modal-open {
+        overflow: hidden;
+      }
+
       .layout {
         height: 100vh;
         display: grid;
@@ -1242,13 +1246,26 @@
           return section;
         }
 
+        function resetModalScrollPosition() {
+          if (typeof dialogBodyEl.scrollTo === "function") {
+            dialogBodyEl.scrollTo(0, 0);
+          }
+          dialogBodyEl.scrollTop = 0;
+          dialogBodyEl.scrollLeft = 0;
+        }
+
         function openModal(title, subtitle, sections) {
           dialogTitleEl.textContent = title;
           dialogSubEl.textContent = subtitle;
           dialogBodyEl.innerHTML = "";
           sections.forEach((section) => dialogBodyEl.appendChild(section));
-          dialogBodyEl.scrollTop = 0;
+          resetModalScrollPosition();
           modalEl.classList.add("open");
+          document.body.classList.add("modal-open");
+          requestAnimationFrame(() => {
+            resetModalScrollPosition();
+          });
+          setTimeout(resetModalScrollPosition, 60);
         }
 
         function openAnnotationModal(text, sentence) {
@@ -1297,8 +1314,9 @@
         }
 
         function closeModal() {
+          resetModalScrollPosition();
           modalEl.classList.remove("open");
-          dialogBodyEl.scrollTop = 0;
+          document.body.classList.remove("modal-open");
         }
 
         function scrollToSentence(sentenceId) {
