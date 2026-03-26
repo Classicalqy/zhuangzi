@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 
 import openpyxl
 
 SOURCE_FILE = "zz_structured.xlsx"
+DICT_SOURCE = "dic.xlsx"
 OUTPUT_FILE = "data.js"
 TEXT_DISPLAY_ORDER = [2, 3, 1]
 TEXT_ORDER_INDEX = {tid: idx for idx, tid in enumerate(TEXT_DISPLAY_ORDER)}
@@ -87,11 +89,78 @@ def is_dynasty_like(text: str) -> bool:
     )
 
 
+def load_variant_mappings() -> list[dict[str, object]]:
+    if not Path(DICT_SOURCE).exists():
+        return []
+
+    wb = openpyxl.load_workbook(DICT_SOURCE, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    header = build_header_index(ws)
+
+    canonical_col = pick_col(
+        header,
+        ["选取的字", "选取字", "标准字", "展示字", "呈现字", "canonical", "display", "target"],
+        1,
+    )
+    variant_col = pick_col(
+        header,
+        ["可能的字", "可能字", "异文", "異文", "他本", "其它版本", "其他版本", "variant", "alternate"],
+        2,
+    )
+    text_id_col = pick_col(header, ["text_id", "textid", "篇章id", "书"], 0)
+    sentence_id_col = pick_col(header, ["sentence_id", "sentenceid", "句id", "分句id"], 0)
+
+    fallback_scope_kind = ""
+    if not text_id_col and not sentence_id_col and ws.max_column >= 3:
+        third_header_raw = normalize_cell_text(ws.cell(1, 3).value)
+        third_header_norm = normalize_header(third_header_raw)
+        if "sentence" in third_header_norm or "句" in third_header_raw:
+            fallback_scope_kind = "sentence"
+        elif "text" in third_header_norm or "篇" in third_header_raw or "书" in third_header_raw:
+            fallback_scope_kind = "text"
+
+    out: list[dict[str, object]] = []
+    seen: set[tuple[str, str, int | None, int | None]] = set()
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        canonical = normalize_cell_text(cell(row, canonical_col))
+        variant = normalize_cell_text(cell(row, variant_col))
+        if not canonical or not variant or canonical == variant:
+            continue
+
+        text_id = to_int(cell(row, text_id_col)) if text_id_col else None
+        sentence_id = to_int(cell(row, sentence_id_col)) if sentence_id_col else None
+        if text_id is None and sentence_id is None and fallback_scope_kind:
+            scope_value = to_int(cell(row, 3))
+            if fallback_scope_kind == "text":
+                text_id = scope_value
+            elif fallback_scope_kind == "sentence":
+                sentence_id = scope_value
+
+        key = (canonical, variant, text_id, sentence_id)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        item: dict[str, object] = {
+            "canonical": canonical,
+            "variant": variant,
+        }
+        if text_id is not None:
+            item["text_id"] = text_id
+        if sentence_id is not None:
+            item["sentence_id"] = sentence_id
+        out.append(item)
+
+    return out
+
+
 def main() -> None:
     wb = openpyxl.load_workbook(SOURCE_FILE, data_only=True)
     ws_sent = wb["small_sentences"]
     ws_anno = wb["annotations"]
     ws_interp = wb["interpretations"]
+    variant_mappings = load_variant_mappings()
 
     sent_header = build_header_index(ws_sent)
     anno_header = build_header_index(ws_anno)
@@ -288,10 +357,12 @@ def main() -> None:
             "annotation_key_count": len(annotations_by_key),
             "interpretation_count": len(interpretations),
             "interpretation_deduplicated": interpretation_dedup_count,
+            "variant_mapping_count": len(variant_mappings),
         },
         "texts": text_list,
         "annotations_by_key": annotations_by_key,
         "interpretations": interpretations,
+        "variant_mappings": variant_mappings,
     }
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
@@ -304,6 +375,7 @@ def main() -> None:
         OUTPUT_FILE,
         f"with {payload['meta']['sentence_count']} sentences and",
         f"{payload['meta']['interpretation_count']} interpretations.",
+        f"Loaded {payload['meta']['variant_mapping_count']} variant mappings.",
         f"Deduplicated {payload['meta']['interpretation_deduplicated']} interpretation rows.",
     )
 

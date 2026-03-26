@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import openpyxl
 
 CRITICISM_SOURCE = "criticism.xlsx"
 TEXT_SOURCE = "zz_structured.xlsx"
+DICT_SOURCE = "dic.xlsx"
 OUTPUT_FILE = "criticism_data.js"
 TEXT_DISPLAY_ORDER = [2, 3, 1]
 TEXT_ORDER_INDEX = {tid: idx for idx, tid in enumerate(TEXT_DISPLAY_ORDER)}
@@ -86,6 +88,71 @@ def split_highlight_terms(raw: object) -> list[str]:
         seen.add(term)
         terms.append(term)
     return terms
+
+
+def load_variant_mappings() -> list[dict[str, object]]:
+    if not Path(DICT_SOURCE).exists():
+        return []
+
+    wb = openpyxl.load_workbook(DICT_SOURCE, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    headers = build_header_index(ws, max_scan=80)
+
+    canonical_col = pick_col(
+        headers,
+        ["选取的字", "选取字", "标准字", "展示字", "呈现字", "canonical", "display", "target"],
+        1,
+    )
+    variant_col = pick_col(
+        headers,
+        ["可能的字", "可能字", "异文", "異文", "他本", "其它版本", "其他版本", "variant", "alternate"],
+        2,
+    )
+    text_id_col = pick_col(headers, ["text_id", "textid", "篇章id", "书"], None)
+    sentence_id_col = pick_col(headers, ["sentence_id", "sentenceid", "句id", "分句id"], None)
+
+    fallback_scope_kind = ""
+    if not text_id_col and not sentence_id_col and ws.max_column >= 3:
+        third_header_raw = normalize_text(ws.cell(1, 3).value)
+        third_header_norm = normalize_header(third_header_raw)
+        if "sentence" in third_header_norm or "句" in third_header_raw:
+            fallback_scope_kind = "sentence"
+        elif "text" in third_header_norm or "篇" in third_header_raw or "书" in third_header_raw:
+            fallback_scope_kind = "text"
+
+    out: list[dict[str, object]] = []
+    seen: set[tuple[str, str, int | None, int | None]] = set()
+    for row in range(2, ws.max_row + 1):
+        canonical = normalize_text(cell(ws, row, canonical_col))
+        variant = normalize_text(cell(ws, row, variant_col))
+        if not canonical or not variant or canonical == variant:
+            continue
+
+        text_id = to_int(cell(ws, row, text_id_col))
+        sentence_id = to_int(cell(ws, row, sentence_id_col))
+        if text_id is None and sentence_id is None and fallback_scope_kind:
+            scope_value = to_int(cell(ws, row, 3))
+            if fallback_scope_kind == "text":
+                text_id = scope_value
+            elif fallback_scope_kind == "sentence":
+                sentence_id = scope_value
+
+        key = (canonical, variant, text_id, sentence_id)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        item: dict[str, object] = {
+            "canonical": canonical,
+            "variant": variant,
+        }
+        if text_id is not None:
+            item["text_id"] = text_id
+        if sentence_id is not None:
+            item["sentence_id"] = sentence_id
+        out.append(item)
+
+    return out
 
 
 def load_sentence_map() -> tuple[dict[tuple[int, int], dict[str, object]], dict[int, str]]:
@@ -281,6 +348,7 @@ def load_relations_and_refs() -> tuple[list[dict[str, object]], list[dict[str, o
 def main() -> None:
     sentence_map, title_map = load_sentence_map()
     relations, refs = load_relations_and_refs()
+    variant_mappings = load_variant_mappings()
 
     groups: dict[tuple[int, int, str], dict[str, object]] = {}
 
@@ -395,8 +463,10 @@ def main() -> None:
             "group_count": sum(len(t["groups"]) for t in text_list),
             "relation_count": sum(t["relation_count"] for t in text_list),
             "reference_count": sum(t["reference_count"] for t in text_list),
+            "variant_mapping_count": len(variant_mappings),
         },
         "texts": text_list,
+        "variant_mappings": variant_mappings,
     }
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
@@ -410,6 +480,7 @@ def main() -> None:
         f"with {payload['meta']['group_count']} groups,",
         f"{payload['meta']['relation_count']} relations and",
         f"{payload['meta']['reference_count']} references.",
+        f"Loaded {payload['meta']['variant_mapping_count']} variant mappings.",
     )
 
 

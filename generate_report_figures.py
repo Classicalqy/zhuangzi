@@ -92,26 +92,39 @@ def draw_box(ax, x: float, y: float, w: float, h: float, title: str, body: str, 
     )
     ax.add_patch(rect)
 
-    ax.text(
-        x + 0.02,
-        y + h - 0.05,
-        title,
-        fontproperties=FONT,
-        fontsize=12.5,
-        fontweight="bold",
-        color=PALETTE["text"],
-        va="top",
-    )
-    ax.text(
-        x + 0.02,
-        y + h - 0.1,
-        body,
-        fontproperties=FONT,
-        fontsize=9.8,
-        color=PALETTE["text"],
-        va="top",
-        linespacing=1.5,
-    )
+    if body.strip():
+        ax.text(
+            x + 0.02,
+            y + h - 0.05,
+            title,
+            fontproperties=FONT,
+            fontsize=12.5,
+            fontweight="bold",
+            color=PALETTE["text"],
+            va="top",
+        )
+        ax.text(
+            x + 0.02,
+            y + h - 0.1,
+            body,
+            fontproperties=FONT,
+            fontsize=9.8,
+            color=PALETTE["text"],
+            va="top",
+            linespacing=1.5,
+        )
+    else:
+        ax.text(
+            x + w / 2,
+            y + h / 2,
+            title,
+            fontproperties=FONT,
+            fontsize=12.8,
+            fontweight="bold",
+            color=PALETTE["text"],
+            ha="center",
+            va="center",
+        )
 
 
 def draw_arrow(ax, start: tuple[float, float], end: tuple[float, float], label: str | None = None):
@@ -153,20 +166,20 @@ def save_figure(fig, stem: str):
 
 
 def generate_figure_2_1():
-    fig, ax = setup_figure(14, 5.8)
+    fig, ax = setup_figure(13, 3.8)
     draw_title(
         ax,
         "图2-1 文本梳理流程图",
-        "对应论文第2.3节，展示《庄子》原文与注疏材料由初步整理到结构化数据形成的处理链条。",
+        "对应论文第2.3节，展示文本梳理的核心处理步骤。",
     )
 
     boxes = [
-        (0.05, 0.34, 0.14, 0.34, "原文分句", "以通行整理本为基础，\n将原文切分为可对应的\n分句单元。", PALETTE["gold"]),
-        (0.22, 0.34, 0.14, 0.34, "表格建索引", "建立篇名、句序、原文等字段，\n形成逐句录入与比对的\n基础框架。", PALETTE["panel"]),
-        (0.39, 0.34, 0.14, 0.34, "人工提取注疏", "从多版本注疏中逐句提取\n对应内容，汇总到统一表格。", PALETTE["green"]),
-        (0.56, 0.34, 0.14, 0.34, "机器分类", "依据语言特征初步区分\n“训诂性注释”与“阐释性注释”。", PALETTE["blue"]),
-        (0.73, 0.34, 0.14, 0.34, "人工校对", "结合上下文复核分类边界，\n修正误判与缺漏。", PALETTE["green"]),
-        (0.90 - 0.14, 0.34, 0.14, 0.34, "数据格式化", "统一字段、来源与标签，\n完成最终校核，形成结构化数据。", PALETTE["gold"]),
+        (0.05, 0.38, 0.125, 0.18, "原文分句", "", PALETTE["gold"]),
+        (0.205, 0.38, 0.125, 0.18, "表格整理", "", PALETTE["panel"]),
+        (0.36, 0.38, 0.125, 0.18, "人工提取", "", PALETTE["green"]),
+        (0.515, 0.38, 0.125, 0.18, "机器分类", "", PALETTE["blue"]),
+        (0.67, 0.38, 0.125, 0.18, "人工校对", "", PALETTE["green"]),
+        (0.825, 0.38, 0.125, 0.18, "格式校核", "", PALETTE["gold"]),
     ]
 
     for box in boxes:
@@ -178,23 +191,6 @@ def generate_figure_2_1():
         x2 = boxes[i + 1][0]
         y2 = boxes[i + 1][1] + boxes[i + 1][3] / 2
         draw_arrow(ax, (x1, y1), (x2, y2))
-
-    ax.text(
-        0.05,
-        0.16,
-        "输出结果：形成可用于网页渲染、文本检索与结果分析的统一数据表。",
-        fontproperties=FONT,
-        fontsize=11,
-        color=PALETTE["text"],
-    )
-    ax.text(
-        0.05,
-        0.10,
-        "说明：机器步骤承担初筛与提效功能，最终结果以人工校对后的数据为准。",
-        fontproperties=FONT,
-        fontsize=10,
-        color=PALETTE["muted"],
-    )
     return save_figure(fig, "figure_2_1_text_workflow")
 
 
@@ -287,10 +283,63 @@ def generate_figure_2_2():
     return save_figure(fig, "figure_2_2_web_pipeline")
 
 
+def generate_figure_3_1():
+    fig, ax = setup_figure(10.5, 6.8)
+    draw_title(
+        ax,
+        "图3-1 网站结构树形图",
+        "对应论文第3.1节，展示平台的主要页面模块及其基本层级关系。",
+    )
+
+    root = (0.38, 0.78, 0.24, 0.12, "庄子注疏平台", "", PALETTE["accent_soft"])
+    children = [
+        (0.08, 0.50, 0.18, 0.12, "首页", "", PALETTE["gold"]),
+        (0.30, 0.50, 0.18, 0.12, "总阅读器", "", PALETTE["blue"]),
+        (0.52, 0.50, 0.18, 0.12, "评价关系", "", PALETTE["green"]),
+        (0.74, 0.50, 0.18, 0.12, "哲学词典", "", PALETTE["panel"]),
+    ]
+    leaves = [
+        (0.05, 0.22, 0.12, 0.1, "平台概览", "", PALETTE["panel"]),
+        (0.18, 0.22, 0.12, 0.1, "篇章入口", "", PALETTE["panel"]),
+        (0.31, 0.22, 0.16, 0.1, "原文分句", "", PALETTE["panel"]),
+        (0.49, 0.22, 0.16, 0.1, "单句注释", "", PALETTE["panel"]),
+        (0.67, 0.22, 0.16, 0.1, "关系展示", "", PALETTE["panel"]),
+        (0.85 - 0.12, 0.22, 0.12, 0.1, "概念词条", "", PALETTE["panel"]),
+    ]
+
+    draw_box(ax, *root)
+    for box in children:
+        draw_box(ax, *box)
+    for box in leaves:
+        draw_box(ax, *box)
+
+    root_center = (root[0] + root[2] / 2, root[1])
+    for box in children:
+        child_center = (box[0] + box[2] / 2, box[1] + box[3])
+        draw_arrow(ax, root_center, child_center)
+
+    child_leaf_map = {
+        0: [0, 1],
+        1: [2, 3],
+        2: [4],
+        3: [5],
+    }
+    for child_idx, leaf_indices in child_leaf_map.items():
+        child = children[child_idx]
+        child_center = (child[0] + child[2] / 2, child[1])
+        for leaf_idx in leaf_indices:
+            leaf = leaves[leaf_idx]
+            leaf_center = (leaf[0] + leaf[2] / 2, leaf[1] + leaf[3])
+            draw_arrow(ax, child_center, leaf_center)
+
+    return save_figure(fig, "figure_3_1_site_tree")
+
+
 def main():
     outputs = []
     outputs.extend(generate_figure_2_1())
     outputs.extend(generate_figure_2_2())
+    outputs.extend(generate_figure_3_1())
 
     print("Generated files:")
     for path in outputs:

@@ -586,6 +586,23 @@
           sidebarCollapsed: false,
         };
         const SIDEBAR_COLLAPSE_KEY = "zz_sidebar_collapsed";
+        const variantMappings = Array.isArray(data.variant_mappings)
+          ? data.variant_mappings
+              .map((item) => {
+                const canonical = String(item?.canonical || "").trim();
+                const variant = String(item?.variant || "").trim();
+                const textId = Number.parseInt(String(item?.text_id ?? ""), 10);
+                const sentenceId = Number.parseInt(String(item?.sentence_id ?? ""), 10);
+                if (!canonical || !variant || canonical === variant) return null;
+                return {
+                  canonical,
+                  variant,
+                  text_id: Number.isInteger(textId) ? textId : null,
+                  sentence_id: Number.isInteger(sentenceId) ? sentenceId : null,
+                };
+              })
+              .filter(Boolean)
+          : [];
 
         function currentText() {
           return textById.get(state.currentTextId);
@@ -626,6 +643,45 @@
         function snippet(text, max = 70) {
           const raw = String(text || "");
           return raw.length > max ? raw.slice(0, max) + "..." : raw;
+        }
+
+        function queryVariantsForScope(rawQuery, textId, sentenceId = null) {
+          const query = String(rawQuery || "").trim();
+          if (!query) return [""];
+
+          const candidates = new Set([query]);
+          const scopedMappings = variantMappings.filter((item) => {
+            if (Number.isInteger(item.text_id) && item.text_id !== textId) return false;
+            if (Number.isInteger(item.sentence_id)) {
+              if (!Number.isInteger(sentenceId)) return false;
+              if (item.sentence_id !== sentenceId) return false;
+            }
+            return true;
+          });
+
+          for (let round = 0; round < 3; round += 1) {
+            let changed = false;
+            const currentList = Array.from(candidates);
+            currentList.forEach((candidate) => {
+              scopedMappings.forEach((mapping) => {
+                if (!candidate.includes(mapping.variant)) return;
+                const mapped = candidate.split(mapping.variant).join(mapping.canonical);
+                if (!candidates.has(mapped)) {
+                  candidates.add(mapped);
+                  changed = true;
+                }
+              });
+            });
+            if (!changed) break;
+          }
+
+          return Array.from(candidates).filter(Boolean).sort((a, b) => b.length - a.length);
+        }
+
+        function matchesAnyQuery(sourceText, queryVariants) {
+          const source = String(sourceText || "");
+          if (!source) return false;
+          return queryVariants.some((variant) => variant && source.includes(variant));
         }
 
         function clearSearchResults() {
@@ -901,9 +957,10 @@
           target.scrollIntoView({ behavior: "smooth", block: "center" });
         }
 
-        function renderSearchResults(results, query) {
+        function renderSearchResults(results, query, mappedApplied = false) {
           searchResultsEl.innerHTML = "";
-          searchMetaEl.textContent = `关键词“${query}”命中 ${results.length} 条（全部篇章）。`;
+          const mappingHint = mappedApplied ? " 已自动应用异文映射。" : "";
+          searchMetaEl.textContent = `关键词“${query}”命中 ${results.length} 条（全部篇章）。${mappingHint}`;
 
           if (!results.length) {
             const empty = document.createElement("p");
@@ -954,6 +1011,7 @@
 
           const results = [];
           const seen = new Set();
+          let mappedApplied = false;
 
           data.texts.forEach((text) => {
             const groups = Array.isArray(text.groups) ? text.groups : [];
@@ -962,10 +1020,12 @@
             groups.forEach((group) => {
               const sentenceId = Number(group.sentence_id);
               if (!Number.isInteger(sentenceId)) return;
+              const queryVariants = queryVariantsForScope(query, text.text_id, sentenceId);
+              if (queryVariants.some((item) => item !== query)) mappedApplied = true;
 
               const sentenceText = String(group.sentence || "");
               const sentenceKey = `${text.text_id}|S|${sentenceId}`;
-              if (!sentenceSeen.has(sentenceId) && sentenceText.includes(query)) {
+              if (!sentenceSeen.has(sentenceId) && matchesAnyQuery(sentenceText, queryVariants)) {
                 sentenceSeen.add(sentenceId);
                 seen.add(sentenceKey);
                 results.push({
@@ -979,7 +1039,7 @@
 
               (group.relations || []).forEach((rel, idx) => {
                 const source = `${rel.from_author || ""}${rel.from_text || ""}${rel.to_author || ""}${rel.eval_text || ""}${rel.stance || ""}`;
-                if (!source.includes(query)) return;
+                if (!matchesAnyQuery(source, queryVariants)) return;
                 const key = `${text.text_id}|R|${sentenceId}|${idx}|${rel.from_author || ""}|${rel.to_author || ""}|${rel.eval_text || ""}`;
                 if (seen.has(key)) return;
                 seen.add(key);
@@ -995,7 +1055,7 @@
 
               (group.references || []).forEach((ref, idx) => {
                 const source = `${ref.ref_author || ""}${ref.ref_text || ""}`;
-                if (!source.includes(query)) return;
+                if (!matchesAnyQuery(source, queryVariants)) return;
                 const key = `${text.text_id}|F|${sentenceId}|${idx}|${ref.ref_author || ""}|${ref.ref_text || ""}`;
                 if (seen.has(key)) return;
                 seen.add(key);
@@ -1010,7 +1070,7 @@
             });
           });
 
-          renderSearchResults(results, query);
+          renderSearchResults(results, query, mappedApplied);
         }
 
         function renderHeader() {

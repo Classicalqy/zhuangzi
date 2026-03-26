@@ -760,6 +760,23 @@
           { value: "释", label: "释" },
           { value: "道", label: "道" },
         ];
+        const variantMappings = Array.isArray(data.variant_mappings)
+          ? data.variant_mappings
+              .map((item) => {
+                const canonical = String(item?.canonical || "").trim();
+                const variant = String(item?.variant || "").trim();
+                const textId = Number.parseInt(String(item?.text_id ?? ""), 10);
+                const sentenceId = Number.parseInt(String(item?.sentence_id ?? ""), 10);
+                if (!canonical || !variant || canonical === variant) return null;
+                return {
+                  canonical,
+                  variant,
+                  text_id: Number.isInteger(textId) ? textId : null,
+                  sentence_id: Number.isInteger(sentenceId) ? sentenceId : null,
+                };
+              })
+              .filter(Boolean)
+          : [];
 
         function normalizeTendency(value) {
           const text = String(value || "").trim();
@@ -895,6 +912,45 @@
         function snippet(text, max = 64) {
           if (!text) return "";
           return text.length > max ? text.slice(0, max) + "..." : text;
+        }
+
+        function queryVariantsForScope(rawQuery, textId, sentenceId = null) {
+          const query = String(rawQuery || "").trim();
+          if (!query) return [""];
+
+          const candidates = new Set([query]);
+          const scopedMappings = variantMappings.filter((item) => {
+            if (Number.isInteger(item.text_id) && item.text_id !== textId) return false;
+            if (Number.isInteger(item.sentence_id)) {
+              if (!Number.isInteger(sentenceId)) return false;
+              if (item.sentence_id !== sentenceId) return false;
+            }
+            return true;
+          });
+
+          for (let round = 0; round < 3; round += 1) {
+            let changed = false;
+            const currentList = Array.from(candidates);
+            currentList.forEach((candidate) => {
+              scopedMappings.forEach((mapping) => {
+                if (!candidate.includes(mapping.variant)) return;
+                const mapped = candidate.split(mapping.variant).join(mapping.canonical);
+                if (!candidates.has(mapped)) {
+                  candidates.add(mapped);
+                  changed = true;
+                }
+              });
+            });
+            if (!changed) break;
+          }
+
+          return Array.from(candidates).filter(Boolean).sort((a, b) => b.length - a.length);
+        }
+
+        function matchesAnyQuery(sourceText, queryVariants) {
+          const source = String(sourceText || "");
+          if (!source) return false;
+          return queryVariants.some((variant) => variant && source.includes(variant));
         }
 
         function renderTextList() {
@@ -1370,9 +1426,10 @@
           callback(textById.get(targetId));
         }
 
-        function renderSearchResults(results, query) {
+        function renderSearchResults(results, query, mappedApplied = false) {
           searchResultsEl.innerHTML = "";
-          searchMetaEl.textContent = `关键词“${query}”命中 ${results.length} 条（全部篇章）。`;
+          const mappingHint = mappedApplied ? " 已自动应用异文映射。" : "";
+          searchMetaEl.textContent = `关键词“${query}”命中 ${results.length} 条（全部篇章）。${mappingHint}`;
 
           if (!results.length) {
             const empty = document.createElement("p");
@@ -1455,10 +1512,13 @@
           }
 
           const results = [];
+          let mappedApplied = false;
 
           data.texts.forEach((text) => {
             text.sentences.forEach((sentence) => {
-              if (sentence.sentence.includes(query)) {
+              const queryVariants = queryVariantsForScope(query, text.text_id, sentence.sentence_id);
+              if (queryVariants.some((item) => item !== query)) mappedApplied = true;
+              if (matchesAnyQuery(sentence.sentence, queryVariants)) {
                 results.push({
                   kind: "sentence",
                   type: "原文",
@@ -1470,11 +1530,13 @@
             });
 
             text.sentences.forEach((sentence) => {
+              const queryVariants = queryVariantsForScope(query, text.text_id, sentence.sentence_id);
+              if (queryVariants.some((item) => item !== query)) mappedApplied = true;
               const key = `${text.text_id}-${sentence.sentence_id}`;
               const annos = data.annotations_by_key[key] || [];
               annos.forEach((anno) => {
                 const source = `${anno.commentator}${anno.dynasty}${anno.content}`;
-                if (source.includes(query)) {
+                if (matchesAnyQuery(source, queryVariants)) {
                   results.push({
                     kind: "annotation",
                     type: "注释",
@@ -1488,8 +1550,10 @@
 
             const interps = interpretationsByText[text.text_id] || [];
             interps.forEach((item) => {
+              const queryVariants = queryVariantsForScope(query, text.text_id, item.start_sentence_id);
+              if (queryVariants.some((value) => value !== query)) mappedApplied = true;
               const source = `${item.commentator}${item.dynasty}${item.tendency || ""}${item.content}`;
-              if (source.includes(query)) {
+              if (matchesAnyQuery(source, queryVariants)) {
                 results.push({
                   kind: "interpretation",
                   type: "阐释",
@@ -1504,7 +1568,7 @@
             });
           });
 
-          renderSearchResults(results, query);
+          renderSearchResults(results, query, mappedApplied);
         }
 
         function renderAll() {
